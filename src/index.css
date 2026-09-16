@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: #f8fafc;
+    color: #09090b;
+  }
+  
+  h1, h2, h3, h4, .font-heading {
+    font-family: 'Outfit', 'Inter', sans-serif;
+  }
+}
+
+/* Cubic Extruder White & Highlighter Green Theme */
+:root {
+  --neon-green: #22c55e;
+  --neon-green-dark: #16a34a;
+  --neon-bright: #00ff66;
+  --neon-green-light: #f0fdf4;
+  --dark-bg: #09090b;
+}
+
+.bg-neon-green {
+  background-color: #22c55e;
+}
+
+.bg-neon-green-light {
+  background-color: #f0fdf4;
+}
+
+.text-neon-green {
+  color: #16a34a;
+}
+
+.cubic-hero-dark {
+  background: linear-gradient(135deg, #09090b 0%, #18181b 60%, #052e16 100%);
+}
+
+.cubic-green-btn {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+}
+
+.cubic-green-accent {
+  background: linear-gradient(135deg, #22c55e 0%, #10b981 100%);
+}
+
+.neon-glow {
+  box-shadow: 0 10px 30px -5px rgba(34, 197, 94, 0.4);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f0fdf4;
+}
+::-webkit-scrollbar-thumb {
+  background: #bbf7d0;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #86efac;
+}
+
+/* Glassmorphism & SaaS Card styling */
+.glass-card {
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(220, 252, 231, 0.9);
+}
+
+/* Print Specific Styles */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-container {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
+
+@media screen {
+  .print-only {
+    display: none !important;
+  }
+}
