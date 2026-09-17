@@ -3,7 +3,7 @@ import type { Category, Subcategory, CatalogProduct, DimensionItem } from '../ty
 
 /**
  * Exports products under a specific Category and its Subcategories into a clean downloadable Excel (.xlsx) file.
- * Includes ONLY the requested 7 fields:
+ * Includes the requested fields:
  * 1. Category Name
  * 2. Subcategory Name
  * 3. Product Name
@@ -12,6 +12,7 @@ import type { Category, Subcategory, CatalogProduct, DimensionItem } from '../ty
  * 6. Bulk Order MOQ (Quantity)
  * 7. Discount
  * 8. Bulk Order Cost Per Unit (Final customer cost per unit in bulk order)
+ * 9. Total Batch Customer Quote (₹) (Total batch quote for the bulk order quantity)
  */
 export function exportCategoryToExcel(
   category: Category,
@@ -72,6 +73,7 @@ export function exportCategoryToExcel(
       'Bulk Order MOQ': res.quantity,
       'Discount': discountLabel,
       'Bulk Order Cost Per Unit': Number(res.finalSellingPrice.toFixed(2)),
+      'Total Batch Customer Quote (₹)': Number(res.totalSellingPrice.toFixed(2)),
     };
   });
 
@@ -88,6 +90,7 @@ export function exportCategoryToExcel(
     { wch: 18 }, // Bulk Order MOQ
     { wch: 22 }, // Discount
     { wch: 28 }, // Bulk Order Cost Per Unit
+    { wch: 32 }, // Total Batch Customer Quote (₹)
   ];
 
   const workbook = XLSX.utils.book_new();
