@@ -1,8 +1,8 @@
 import React from 'react';
 import type { Category, Subcategory, CatalogProduct } from '../../types/calculator';
 import { SubcategoryRow } from './SubcategoryRow';
-import { exportCategoryToExcel } from '../../utils/excelExporter';
-import { Folder, Plus, FileSpreadsheet, Trash2, Pencil } from 'lucide-react';
+import { exportCategoryCustomerExcel, exportCategoryAdminExcel } from '../../utils/excelExporter';
+import { Folder, Plus, FileSpreadsheet, ShieldCheck, Trash2, Pencil } from 'lucide-react';
 
 interface CategoryCardProps {
   category: Category;
@@ -34,14 +34,18 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
   const categorySubcategories = subcategories.filter((s) => s.categoryId === category.id);
   const categoryProducts = products.filter((p) => p.categoryId === category.id);
 
-  const handleExportExcel = () => {
-    exportCategoryToExcel(category, subcategories, products);
+  const handleExportCustomerExcel = () => {
+    exportCategoryCustomerExcel(category, subcategories, products);
+  };
+
+  const handleExportAdminExcel = () => {
+    exportCategoryAdminExcel(category, subcategories, products);
   };
 
   return (
     <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs mb-6 transition-all">
       {/* Category Main Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 mb-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-4 border-b border-slate-100 mb-4">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-900 to-slate-800 text-white flex items-center justify-center font-bold shrink-0 shadow-sm">
             <Folder className="w-5 h-5 text-blue-400" />
@@ -69,17 +73,28 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
           </div>
         </div>
 
-        {/* Category Actions: EXPORT TO EXCEL BUTTON & Add Subcategory */}
-        <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
-          {/* Export to Excel (.xlsx) Button */}
+        {/* Category Actions: 2 EXPORT EXCEL BUTTONS (Customer & Admin) & Add Subcategory */}
+        <div className="flex items-center gap-2 self-end lg:self-auto flex-wrap">
+          {/* 1. Customer Quote Excel Button */}
           <button
-            onClick={handleExportExcel}
+            onClick={handleExportCustomerExcel}
             type="button"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
-            title="Export all subcategories and products under this category to an Excel sheet (.xlsx)"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+            title="Download Customer Quote Excel Sheet (Clean prices & quantities for client delivery)"
           >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>Export to Excel (.xlsx)</span>
+            <FileSpreadsheet className="w-4 h-4 text-emerald-100" />
+            <span>Customer Excel</span>
+          </button>
+
+          {/* 2. Admin Internal Master Excel Button */}
+          <button
+            onClick={handleExportAdminExcel}
+            type="button"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-purple-200 bg-slate-900 hover:bg-slate-800 border border-purple-500/40 rounded-xl shadow-md shadow-slate-900/30 transition-all cursor-pointer"
+            title="Download Admin Internal Master Excel Sheet (Complete manufacturing cost breakdown, filaments, electricity, operating expenses & net profit)"
+          >
+            <ShieldCheck className="w-4 h-4 text-purple-400" />
+            <span>Admin Excel</span>
           </button>
 
           <button
