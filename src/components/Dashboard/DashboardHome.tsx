@@ -43,10 +43,32 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   const [editingSubcategory, setEditingSubcategory] = useState<Subcategory | null>(null);
 
   // Compute stats
-  const totalPortfolioValue = products.reduce(
-    (sum, p) => sum + (p.calculationResult?.finalSellingPrice || 0),
-    0
-  );
+  const totalBatchQuantity = products.reduce((sum, p) => {
+    const qty = p.calculationResult?.quantity ?? p.calculatorState?.quantity ?? 1;
+    return sum + qty;
+  }, 0);
+
+  const totalCatalogProductionCost = products.reduce((sum, p) => {
+    const res = p.calculationResult;
+    if (!res) return sum;
+    const qty = res.quantity || 1;
+    return sum + (res.totalProductionCost ?? ((res.baseProductionCost || 0) * qty));
+  }, 0);
+
+  const totalCatalogSellingPrice = products.reduce((sum, p) => {
+    const res = p.calculationResult;
+    if (!res) return sum;
+    const qty = res.quantity || 1;
+    return sum + (res.totalSellingPrice ?? ((res.finalSellingPrice || 0) * qty));
+  }, 0);
+
+  const totalCatalogNetProfit = products.reduce((sum, p) => {
+    const res = p.calculationResult;
+    if (!res) return sum;
+    const qty = res.quantity || 1;
+    const unitProfit = res.actualProfitAfterDiscount ?? ((res.finalSellingPrice || 0) - (res.baseProductionCost || 0));
+    return sum + (res.totalProfit ?? (unitProfit * qty));
+  }, 0);
 
   const selectedCategoryObj = categories.find(
     (c) => c.id === (selectedCategoryIdForSub || editingSubcategory?.categoryId)
@@ -95,36 +117,93 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           </div>
         </div>
 
-        {/* 4 Stat Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-slate-800">
-          <div className="bg-slate-800/80 rounded-2xl p-3.5 border border-slate-700/60">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide block">
-              Categories
-            </span>
-            <span className="text-lg font-bold text-white block mt-0.5">{categories.length}</span>
+        {/* Dashboard Summary Stat Cards Grid */}
+        <div className="mt-6 pt-6 border-t border-slate-800 space-y-3">
+          {/* Row 1: Item & Unit Counts */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-slate-800/80 rounded-2xl p-3.5 border border-slate-700/60">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide block">
+                Categories
+              </span>
+              <span className="text-lg font-bold text-white block mt-0.5">{categories.length}</span>
+            </div>
+
+            <div className="bg-slate-800/80 rounded-2xl p-3.5 border border-slate-700/60">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide block">
+                Subcategories
+              </span>
+              <span className="text-lg font-bold text-white block mt-0.5">{subcategories.length}</span>
+            </div>
+
+            <div className="bg-slate-800/80 rounded-2xl p-3.5 border border-slate-700/60">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide block">
+                Catalog Products
+              </span>
+              <span className="text-lg font-bold text-white block mt-0.5">{products.length}</span>
+            </div>
+
+            <div className="bg-slate-800/80 rounded-2xl p-3.5 border border-slate-700/60">
+              <span className="text-[10px] font-semibold text-blue-400 uppercase tracking-wide block">
+                Total Batch Quantity
+              </span>
+              <span className="text-lg font-extrabold text-blue-300 block mt-0.5">
+                {totalBatchQuantity.toLocaleString('en-IN')} <span className="text-xs font-normal text-slate-400">Units</span>
+              </span>
+            </div>
           </div>
 
-          <div className="bg-slate-800/80 rounded-2xl p-3.5 border border-slate-700/60">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide block">
-              Subcategories
-            </span>
-            <span className="text-lg font-bold text-white block mt-0.5">{subcategories.length}</span>
-          </div>
+          {/* Row 2: Financial Breakdown (Total Production Cost, Catalog Total Value, Total Net Profit) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-slate-800/90 rounded-2xl p-4 border border-slate-700/80">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Total Production Cost
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 font-semibold">
+                  Mfg Cost
+                </span>
+              </div>
+              <span className="text-xl font-extrabold text-slate-200 block mt-1">
+                {formatINR(totalCatalogProductionCost)}
+              </span>
+              <span className="text-[10px] text-slate-400 mt-0.5 block">
+                Combined manufacturing cost for all bulk orders
+              </span>
+            </div>
 
-          <div className="bg-slate-800/80 rounded-2xl p-3.5 border border-slate-700/60">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide block">
-              Catalog Products
-            </span>
-            <span className="text-lg font-bold text-white block mt-0.5">{products.length}</span>
-          </div>
+            <div className="bg-gradient-to-br from-emerald-900/40 via-slate-800 to-teal-900/40 rounded-2xl p-4 border border-emerald-500/40">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider">
+                  Catalog Total Quote Value
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-[#22c55e] border border-emerald-500/30 font-semibold">
+                  Gross Revenue
+                </span>
+              </div>
+              <span className="text-xl font-extrabold text-white block mt-1">
+                {formatINR(totalCatalogSellingPrice)}
+              </span>
+              <span className="text-[10px] text-emerald-300/80 mt-0.5 block">
+                Total customer quote value for all catalog items
+              </span>
+            </div>
 
-          <div className="bg-gradient-to-br from-emerald-600/30 to-teal-600/30 rounded-2xl p-3.5 border border-emerald-500/40">
-            <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider block">
-              Catalog Total Value
-            </span>
-            <span className="text-lg font-extrabold text-white block mt-0.5">
-              {formatINR(totalPortfolioValue)}
-            </span>
+            <div className="bg-gradient-to-br from-teal-900/50 via-slate-800 to-emerald-950/60 rounded-2xl p-4 border border-teal-500/40">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-extrabold text-teal-300 uppercase tracking-wider">
+                  Total Net Profit (Margin)
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30 font-semibold">
+                  Net Margin
+                </span>
+              </div>
+              <span className="text-xl font-extrabold text-[#22c55e] block mt-1">
+                {formatINR(totalCatalogNetProfit)}
+              </span>
+              <span className="text-[10px] text-teal-300/80 mt-0.5 block">
+                Net profit across full catalog after discounts
+              </span>
+            </div>
           </div>
         </div>
       </div>

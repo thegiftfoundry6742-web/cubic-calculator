@@ -29,7 +29,7 @@ export function exportCategoryToExcel(
     return;
   }
 
-  const exportRows = categoryProducts.map((prod) => {
+  const exportRows: Record<string, string | number>[] = categoryProducts.map((prod) => {
     const res = prod.calculationResult;
     const st = prod.calculatorState;
     const subName = subcatMap.get(prod.subcategoryId) || 'General';
@@ -75,6 +75,33 @@ export function exportCategoryToExcel(
       'Bulk Order Cost Per Unit': Number(res.finalSellingPrice.toFixed(2)),
       'Total Batch Customer Quote (₹)': Number(res.totalSellingPrice.toFixed(2)),
     };
+  });
+
+  // Calculate totals across exported category products
+  const totalCategoryMOQ = categoryProducts.reduce(
+    (sum, p) => sum + (p.calculationResult?.quantity || 1),
+    0
+  );
+
+  const totalCategoryBatchQuote = categoryProducts.reduce(
+    (sum, p) =>
+      sum +
+      (p.calculationResult?.totalSellingPrice ??
+        ((p.calculationResult?.finalSellingPrice || 0) * (p.calculationResult?.quantity || 1))),
+    0
+  );
+
+  // Append Grand Total Row at the end of the Excel table
+  exportRows.push({
+    'Category Name': 'TOTAL',
+    'Subcategory': '',
+    'Product Name': `Total: ${categoryProducts.length} Product(s)`,
+    'Product Dimensions': '',
+    'Per Unit Cost (Pre-Discount)': '',
+    'Bulk Order MOQ': totalCategoryMOQ,
+    'Discount': '',
+    'Bulk Order Cost Per Unit': 'TOTAL BATCH QUOTE:',
+    'Total Batch Customer Quote (₹)': Number(totalCategoryBatchQuote.toFixed(2)),
   });
 
   // Create worksheet and workbook
