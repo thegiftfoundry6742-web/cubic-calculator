@@ -1,11 +1,34 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Category, Subcategory, CatalogProduct } from '../types/calculator';
+import type { Category, Subcategory, CatalogProduct, GlobalSettings } from '../types/calculator';
 import { getSupabaseClient } from '../lib/supabase';
+import { calculate3DPrintCost } from '../engine/calculationEngine';
 
 const API_BASE = 'http://localhost:3001/api';
 const STORAGE_CATALOG_KEY = 'cubic_catalog_db_real_v2';
+const STORAGE_SETTINGS_KEY = 'cubic_catalog_global_settings_v1';
+
+const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
+  defaultFilamentCostPerKg: 1399,
+  defaultElectricityRatePerKwh: 15,
+};
 
 export function useCatalog() {
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_SETTINGS_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (
+          typeof parsed.defaultFilamentCostPerKg === 'number' &&
+          typeof parsed.defaultElectricityRatePerKwh === 'number'
+        ) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return DEFAULT_GLOBAL_SETTINGS;
+  });
+
   const [categories, setCategories] = useState<Category[]>(() => {
     try {
       const saved = localStorage.getItem(`${STORAGE_CATALOG_KEY}_categories`);
@@ -395,7 +418,79 @@ export function useCatalog() {
     }
   }, []);
 
+  const updateGlobalSettings = useCallback(
+    async (newSettings: GlobalSettings, applyToExistingProducts: boolean = false) => {
+      setGlobalSettings(newSettings);
+      try {
+        localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(newSettings));
+      } catch {}
+
+      if (applyToExistingProducts) {
+        setProducts((prev) => {
+          return prev.map((p) => {
+            const currentSt = p.calculatorState || {};
+            const currentFils = Array.isArray(currentSt.filaments) ? currentSt.filaments : [];
+            const updatedFils =
+              currentFils.length > 0
+                ? currentFils.map((f, idx) =>
+                    idx === 0 ? { ...f, costPerKg: newSettings.defaultFilamentCostPerKg } : f
+                  )
+                : [
+                    {
+                      id: 'fil-1',
+                      name: 'PLA Standard',
+                      usedGrams: 200,
+                      costPerKg: newSettings.defaultFilamentCostPerKg,
+                    },
+                  ];
+
+            const updatedElec = {
+              ...(currentSt.electricity || {}),
+              ratePerKwh: newSettings.defaultElectricityRatePerKwh,
+            };
+
+            const updatedSt = {
+              ...currentSt,
+              filaments: updatedFils,
+              electricity: updatedElec,
+            };
+
+            const updatedRes = calculate3DPrintCost(updatedSt as any);
+
+            const updatedProd = {
+              ...p,
+              calculatorState: updatedSt as any,
+              calculationResult: updatedRes,
+              updatedAt: Date.now(),
+            };
+
+            // Sync updated product to Supabase
+            try {
+              const supabase = getSupabaseClient();
+              if (supabase) {
+                supabase.from('products').upsert({
+                  id: updatedProd.id,
+                  category_id: updatedProd.categoryId,
+                  subcategory_id: updatedProd.subcategoryId,
+                  name: updatedProd.name,
+                  dimensions: updatedProd.dimensions,
+                  calculator_state: updatedProd.calculatorState,
+                  calculation_result: updatedProd.calculationResult,
+                });
+              }
+            } catch {}
+
+            return updatedProd;
+          });
+        });
+      }
+    },
+    []
+  );
+
   return {
+    globalSettings,
+    updateGlobalSettings,
     categories,
     subcategories,
     products,

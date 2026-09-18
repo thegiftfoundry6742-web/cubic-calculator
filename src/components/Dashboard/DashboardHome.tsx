@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
-import type { Category, Subcategory, CatalogProduct } from '../../types/calculator';
+import React, { useState, useEffect } from 'react';
+import type { Category, Subcategory, CatalogProduct, GlobalSettings } from '../../types/calculator';
 import { CategoryCard } from './CategoryCard';
 import { CreateCategoryModal, CreateSubcategoryModal } from './ModalForms';
 import { formatINR } from '../../utils/formatters';
-import { FolderPlus, Sparkles } from 'lucide-react';
+import { FolderPlus, Sparkles, Sliders, Save, RefreshCw } from 'lucide-react';
 
 interface DashboardHomeProps {
   categories: Category[];
   subcategories: Subcategory[];
   products: CatalogProduct[];
+  globalSettings: GlobalSettings;
+  onUpdateGlobalSettings: (settings: GlobalSettings, applyToExisting: boolean) => void;
   onAddCategory: (name: string, description: string) => void;
   onUpdateCategory: (id: string, name: string, description: string) => void;
   onAddSubcategory: (categoryId: string, name: string, description: string) => void;
@@ -19,12 +21,15 @@ interface DashboardHomeProps {
   onDeleteCategory: (categoryId: string) => void;
   onDeleteSubcategory: (subcategoryId: string) => void;
   onOpenCalculator: () => void;
+  showToast?: (msg: string) => void;
 }
 
 export const DashboardHome: React.FC<DashboardHomeProps> = ({
   categories,
   subcategories,
   products,
+  globalSettings,
+  onUpdateGlobalSettings,
   onAddCategory,
   onUpdateCategory,
   onAddSubcategory,
@@ -35,12 +40,21 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   onDeleteCategory,
   onDeleteSubcategory,
   onOpenCalculator,
+  showToast,
 }) => {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
   const [selectedCategoryIdForSub, setSelectedCategoryIdForSub] = useState<string | null>(null);
   const [editingSubcategory, setEditingSubcategory] = useState<Subcategory | null>(null);
+
+  const [filamentInput, setFilamentInput] = useState<number>(globalSettings.defaultFilamentCostPerKg);
+  const [electricityInput, setElectricityInput] = useState<number>(globalSettings.defaultElectricityRatePerKwh);
+
+  useEffect(() => {
+    setFilamentInput(globalSettings.defaultFilamentCostPerKg);
+    setElectricityInput(globalSettings.defaultElectricityRatePerKwh);
+  }, [globalSettings.defaultFilamentCostPerKg, globalSettings.defaultElectricityRatePerKwh]);
 
   // Compute stats
   const totalBatchQuantity = products.reduce((sum, p) => {
@@ -205,6 +219,99 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
               </span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Global Base Rates & Pricing Defaults Panel */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <Sliders className="w-5 h-5 text-[#22c55e]" />
+              <h3 className="text-base font-bold text-slate-900 font-heading">
+                Global Pricing Base Rates
+              </h3>
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                Catalog Defaults
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Set default filament price and electricity rate applied to all new products. Manual edits inside product calculator override these defaults.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 items-end">
+          {/* Filament Default Price */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Default Filament Price (₹/kg)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                ₹
+              </span>
+              <input
+                type="number"
+                min="0"
+                value={filamentInput}
+                onChange={(e) => setFilamentInput(Number(e.target.value))}
+                className="w-full pl-7 pr-3 py-2 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          {/* Electricity Default Rate */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Default Electricity Rate (₹/kWh)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                ₹
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                value={electricityInput}
+                onChange={(e) => setElectricityInput(Number(e.target.value))}
+                className="w-full pl-7 pr-3 py-2 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          {/* Save Base Defaults */}
+          <button
+            onClick={() => {
+              onUpdateGlobalSettings(
+                { defaultFilamentCostPerKg: filamentInput, defaultElectricityRatePerKwh: electricityInput },
+                false
+              );
+              if (showToast) showToast(`Global Base Rates saved! Filament: ₹${filamentInput}/kg | Electricity: ₹${electricityInput}/kWh`);
+            }}
+            type="button"
+            className="w-full py-2.5 px-4 font-bold text-xs text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            <Save className="w-4 h-4 text-[#22c55e]" />
+            <span>Save Base Defaults</span>
+          </button>
+
+          {/* Apply Rates to All Products */}
+          <button
+            onClick={() => {
+              onUpdateGlobalSettings(
+                { defaultFilamentCostPerKg: filamentInput, defaultElectricityRatePerKwh: electricityInput },
+                true
+              );
+              if (showToast) showToast(`Updated all catalog products with Filament ₹${filamentInput}/kg & Electricity ₹${electricityInput}/kWh!`);
+            }}
+            type="button"
+            className="w-full py-2.5 px-4 font-bold text-xs text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            <RefreshCw className="w-4 h-4 text-emerald-600" />
+            <span>Apply Rates to All Products</span>
+          </button>
         </div>
       </div>
 

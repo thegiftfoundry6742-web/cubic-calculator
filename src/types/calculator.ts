@@ -172,3 +172,8 @@ export interface Preset {
   discount: DiscountConfig;
   createdAt: number;
 }
+
+export interface GlobalSettings {
+  defaultFilamentCostPerKg: number;
+  defaultElectricityRatePerKwh: number;
+}

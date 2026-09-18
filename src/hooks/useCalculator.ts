@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import type { CalculatorState, FilamentItem, Preset, DimensionItem, CatalogProduct } from '../types/calculator';
+import type { CalculatorState, FilamentItem, Preset, DimensionItem, CatalogProduct, GlobalSettings } from '../types/calculator';
 import { calculate3DPrintCost } from '../engine/calculationEngine';
 
 export const DEFAULT_DIMENSIONS: DimensionItem[] = [
@@ -222,15 +222,33 @@ export function useCalculator() {
     });
   }, []);
 
-  const prepareNewProductForSubcategory = useCallback((categoryId: string, subcategoryId: string) => {
-    setState({
-      ...DEFAULT_CALCULATOR_STATE,
-      productName: 'New 3D Print Product',
-      categoryId,
-      subcategoryId,
-      productId: undefined,
-    });
-  }, []);
+  const prepareNewProductForSubcategory = useCallback(
+    (categoryId: string, subcategoryId: string, globalSettings?: GlobalSettings) => {
+      const filCost = globalSettings?.defaultFilamentCostPerKg ?? 1399;
+      const elecRate = globalSettings?.defaultElectricityRatePerKwh ?? 15;
+
+      setState({
+        ...DEFAULT_CALCULATOR_STATE,
+        productName: 'New 3D Print Product',
+        categoryId,
+        subcategoryId,
+        productId: undefined,
+        filaments: [
+          {
+            id: `fil-${Date.now()}`,
+            name: 'PLA Standard',
+            usedGrams: 200,
+            costPerKg: filCost,
+          },
+        ],
+        electricity: {
+          ...DEFAULT_CALCULATOR_STATE.electricity,
+          ratePerKwh: elecRate,
+        },
+      });
+    },
+    []
+  );
 
   return {
     state,

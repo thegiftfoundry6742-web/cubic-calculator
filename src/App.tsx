@@ -49,6 +49,8 @@ export function App() {
   const { presets, savePreset, deletePreset } = usePresets();
 
   const {
+    globalSettings,
+    updateGlobalSettings,
     categories,
     subcategories,
     products,
@@ -128,7 +130,7 @@ export function App() {
   const handleAddProductForSubcategory = (subcategoryId: string) => {
     const sub = subcategories.find((s) => s.id === subcategoryId);
     if (sub) {
-      prepareNewProductForSubcategory(sub.categoryId, sub.id);
+      prepareNewProductForSubcategory(sub.categoryId, sub.id, globalSettings);
     }
     setCurrentView('calculator');
   };
@@ -191,6 +193,8 @@ Markup: ${formatPercent(results.actualMarkupAfterDiscount)}`;
             categories={categories}
             subcategories={subcategories}
             products={products}
+            globalSettings={globalSettings}
+            onUpdateGlobalSettings={updateGlobalSettings}
             onAddCategory={addCategory}
             onUpdateCategory={updateCategory}
             onAddSubcategory={addSubcategory}
@@ -200,7 +204,11 @@ Markup: ${formatPercent(results.actualMarkupAfterDiscount)}`;
             onDeleteProduct={deleteProduct}
             onDeleteCategory={deleteCategory}
             onDeleteSubcategory={deleteSubcategory}
-            onOpenCalculator={() => setCurrentView('calculator')}
+            onOpenCalculator={() => {
+              prepareNewProductForSubcategory(categories[0]?.id || '', subcategories[0]?.id || '', globalSettings);
+              setCurrentView('calculator');
+            }}
+            showToast={showToast}
           />
         ) : (
           /* CALCULATOR PAGE VIEW */
