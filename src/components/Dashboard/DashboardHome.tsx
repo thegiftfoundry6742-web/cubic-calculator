@@ -3,7 +3,7 @@ import type { Category, Subcategory, CatalogProduct, GlobalSettings } from '../.
 import { CategoryCard } from './CategoryCard';
 import { CreateCategoryModal, CreateSubcategoryModal } from './ModalForms';
 import { formatINR } from '../../utils/formatters';
-import { FolderPlus, Sparkles, Sliders, Save, RefreshCw } from 'lucide-react';
+import { FolderPlus, Sparkles, Sliders, Save } from 'lucide-react';
 
 interface DashboardHomeProps {
   categories: Category[];
@@ -48,12 +48,20 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   const [selectedCategoryIdForSub, setSelectedCategoryIdForSub] = useState<string | null>(null);
   const [editingSubcategory, setEditingSubcategory] = useState<Subcategory | null>(null);
 
-  const [filamentInput, setFilamentInput] = useState<number>(globalSettings.defaultFilamentCostPerKg);
-  const [electricityInput, setElectricityInput] = useState<number>(globalSettings.defaultElectricityRatePerKwh);
+  const [filamentInputStr, setFilamentInputStr] = useState<string>(
+    globalSettings.defaultFilamentCostPerKg ? globalSettings.defaultFilamentCostPerKg.toString() : ''
+  );
+  const [electricityInputStr, setElectricityInputStr] = useState<string>(
+    globalSettings.defaultElectricityRatePerKwh ? globalSettings.defaultElectricityRatePerKwh.toString() : ''
+  );
 
   useEffect(() => {
-    setFilamentInput(globalSettings.defaultFilamentCostPerKg);
-    setElectricityInput(globalSettings.defaultElectricityRatePerKwh);
+    setFilamentInputStr(
+      globalSettings.defaultFilamentCostPerKg ? globalSettings.defaultFilamentCostPerKg.toString() : ''
+    );
+    setElectricityInputStr(
+      globalSettings.defaultElectricityRatePerKwh ? globalSettings.defaultElectricityRatePerKwh.toString() : ''
+    );
   }, [globalSettings.defaultFilamentCostPerKg, globalSettings.defaultElectricityRatePerKwh]);
 
   // Compute stats
@@ -223,7 +231,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
       </div>
 
       {/* Global Base Rates & Pricing Defaults Panel */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs">
+      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
           <div>
             <div className="flex items-center gap-2">
@@ -236,13 +244,13 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Set default filament price and electricity rate applied to all new products. Manual edits inside product calculator override these defaults.
+              Set default filament price and electricity rate applied to all products across your 3D print catalog. Free text entry allowing easy editing.
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 items-end">
-          {/* Filament Default Price */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4 items-end">
+          {/* Filament Default Price (Free text) */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
               Default Filament Price (₹/kg)
@@ -252,16 +260,17 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                 ₹
               </span>
               <input
-                type="number"
-                min="0"
-                value={filamentInput}
-                onChange={(e) => setFilamentInput(Number(e.target.value))}
+                type="text"
+                inputMode="decimal"
+                value={filamentInputStr}
+                onChange={(e) => setFilamentInputStr(e.target.value)}
+                placeholder="e.g. 1399"
                 className="w-full pl-7 pr-3 py-2 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
               />
             </div>
           </div>
 
-          {/* Electricity Default Rate */}
+          {/* Electricity Default Rate (Free text) */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
               Default Electricity Rate (₹/kWh)
@@ -271,46 +280,33 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                 ₹
               </span>
               <input
-                type="number"
-                min="0"
-                step="0.5"
-                value={electricityInput}
-                onChange={(e) => setElectricityInput(Number(e.target.value))}
+                type="text"
+                inputMode="decimal"
+                value={electricityInputStr}
+                onChange={(e) => setElectricityInputStr(e.target.value)}
+                placeholder="e.g. 15"
                 className="w-full pl-7 pr-3 py-2 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
               />
             </div>
           </div>
 
-          {/* Save Base Defaults */}
+          {/* Save & Apply to All Products Button */}
           <button
             onClick={() => {
+              const filVal = parseFloat(filamentInputStr) || 0;
+              const elecVal = parseFloat(electricityInputStr) || 0;
               onUpdateGlobalSettings(
-                { defaultFilamentCostPerKg: filamentInput, defaultElectricityRatePerKwh: electricityInput },
-                false
-              );
-              if (showToast) showToast(`Global Base Rates saved! Filament: ₹${filamentInput}/kg | Electricity: ₹${electricityInput}/kWh`);
-            }}
-            type="button"
-            className="w-full py-2.5 px-4 font-bold text-xs text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5"
-          >
-            <Save className="w-4 h-4 text-[#22c55e]" />
-            <span>Save Base Defaults</span>
-          </button>
-
-          {/* Apply Rates to All Products */}
-          <button
-            onClick={() => {
-              onUpdateGlobalSettings(
-                { defaultFilamentCostPerKg: filamentInput, defaultElectricityRatePerKwh: electricityInput },
+                { defaultFilamentCostPerKg: filVal, defaultElectricityRatePerKwh: elecVal },
                 true
               );
-              if (showToast) showToast(`Updated all catalog products with Filament ₹${filamentInput}/kg & Electricity ₹${electricityInput}/kWh!`);
+              if (showToast)
+                showToast(`Applied Base Rates to all products! Filament: ₹${filVal}/kg | Electricity: ₹${elecVal}/kWh`);
             }}
             type="button"
-            className="w-full py-2.5 px-4 font-bold text-xs text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+            className="w-full py-2.5 px-4 font-bold text-xs text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-md shadow-slate-900/20 transition-all cursor-pointer flex items-center justify-center gap-2"
           >
-            <RefreshCw className="w-4 h-4 text-emerald-600" />
-            <span>Apply Rates to All Products</span>
+            <Save className="w-4 h-4 text-[#22c55e]" />
+            <span>Save & Apply to All Products</span>
           </button>
         </div>
       </div>
