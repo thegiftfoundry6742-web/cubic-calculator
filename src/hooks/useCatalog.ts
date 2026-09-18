@@ -10,6 +10,8 @@ const STORAGE_SETTINGS_KEY = 'cubic_catalog_global_settings_v1';
 const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   defaultFilamentCostPerKg: 1399,
   defaultElectricityRatePerKwh: 15,
+  defaultProfitPercent: 25,
+  defaultProfitMode: 'margin',
 };
 
 export function useCatalog() {
@@ -22,7 +24,12 @@ export function useCatalog() {
           typeof parsed.defaultFilamentCostPerKg === 'number' &&
           typeof parsed.defaultElectricityRatePerKwh === 'number'
         ) {
-          return parsed;
+          return {
+            defaultFilamentCostPerKg: parsed.defaultFilamentCostPerKg,
+            defaultElectricityRatePerKwh: parsed.defaultElectricityRatePerKwh,
+            defaultProfitPercent: typeof parsed.defaultProfitPercent === 'number' ? parsed.defaultProfitPercent : 25,
+            defaultProfitMode: parsed.defaultProfitMode || 'margin',
+          };
         }
       }
     } catch {}
@@ -449,10 +456,17 @@ export function useCatalog() {
               ratePerKwh: newSettings.defaultElectricityRatePerKwh,
             };
 
+            const updatedProfit = {
+              ...(currentSt.profit || {}),
+              mode: newSettings.defaultProfitMode || 'margin',
+              value: typeof newSettings.defaultProfitPercent === 'number' ? newSettings.defaultProfitPercent : 25,
+            };
+
             const updatedSt = {
               ...currentSt,
               filaments: updatedFils,
               electricity: updatedElec,
+              profit: updatedProfit,
             };
 
             const updatedRes = calculate3DPrintCost(updatedSt as any);

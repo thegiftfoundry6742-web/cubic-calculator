@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { Category, Subcategory, CatalogProduct, GlobalSettings } from '../../types/calculator';
+import type { Category, Subcategory, CatalogProduct, GlobalSettings, ProfitMode } from '../../types/calculator';
 import { CategoryCard } from './CategoryCard';
 import { CreateCategoryModal, CreateSubcategoryModal } from './ModalForms';
 import { formatINR } from '../../utils/formatters';
@@ -54,6 +54,12 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   const [electricityInputStr, setElectricityInputStr] = useState<string>(
     globalSettings.defaultElectricityRatePerKwh ? globalSettings.defaultElectricityRatePerKwh.toString() : ''
   );
+  const [profitInputStr, setProfitInputStr] = useState<string>(
+    globalSettings.defaultProfitPercent ? globalSettings.defaultProfitPercent.toString() : '25'
+  );
+  const [profitMode, setProfitMode] = useState<ProfitMode>(
+    globalSettings.defaultProfitMode || 'margin'
+  );
 
   useEffect(() => {
     setFilamentInputStr(
@@ -62,7 +68,16 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
     setElectricityInputStr(
       globalSettings.defaultElectricityRatePerKwh ? globalSettings.defaultElectricityRatePerKwh.toString() : ''
     );
-  }, [globalSettings.defaultFilamentCostPerKg, globalSettings.defaultElectricityRatePerKwh]);
+    setProfitInputStr(
+      globalSettings.defaultProfitPercent ? globalSettings.defaultProfitPercent.toString() : '25'
+    );
+    setProfitMode(globalSettings.defaultProfitMode || 'margin');
+  }, [
+    globalSettings.defaultFilamentCostPerKg,
+    globalSettings.defaultElectricityRatePerKwh,
+    globalSettings.defaultProfitPercent,
+    globalSettings.defaultProfitMode,
+  ]);
 
   // Compute stats
   const totalBatchQuantity = products.reduce((sum, p) => {
@@ -249,7 +264,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 items-end">
           {/* Filament Default Price (Free text) */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -290,17 +305,55 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             </div>
           </div>
 
+          {/* Profit Target % (Free text) */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-slate-700">
+                Default Profit Target (%)
+              </label>
+              <button
+                type="button"
+                onClick={() => setProfitMode((prev: ProfitMode) => (prev === 'margin' ? 'markup' : 'margin'))}
+                className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
+                title="Toggle Profit Margin % vs Markup %"
+              >
+                {profitMode === 'margin' ? 'Margin %' : 'Markup %'}
+              </button>
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={profitInputStr}
+                onChange={(e) => setProfitInputStr(e.target.value)}
+                placeholder="e.g. 25"
+                className="w-full pl-3 pr-8 py-2 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                %
+              </span>
+            </div>
+          </div>
+
           {/* Save & Apply to All Products Button */}
           <button
             onClick={() => {
               const filVal = parseFloat(filamentInputStr) || 0;
               const elecVal = parseFloat(electricityInputStr) || 0;
+              const profitVal = parseFloat(profitInputStr) || 0;
               onUpdateGlobalSettings(
-                { defaultFilamentCostPerKg: filVal, defaultElectricityRatePerKwh: elecVal },
+                {
+                  defaultFilamentCostPerKg: filVal,
+                  defaultElectricityRatePerKwh: elecVal,
+                  defaultProfitPercent: profitVal,
+                  defaultProfitMode: profitMode,
+                },
                 true
               );
               if (showToast)
-                showToast(`Applied Base Rates to all products! Filament: ₹${filVal}/kg | Electricity: ₹${elecVal}/kWh`);
+                showToast(
+                  `Applied Base Rates & Profit Margin to all products! Filament: ₹${filVal}/kg | Electricity: ₹${elecVal}/kWh | Profit: ${profitVal}% (${profitMode})`
+                );
             }}
             type="button"
             className="w-full py-2.5 px-4 font-bold text-xs text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-md shadow-slate-900/20 transition-all cursor-pointer flex items-center justify-center gap-2"

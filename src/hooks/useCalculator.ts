@@ -226,6 +226,8 @@ export function useCalculator() {
     (categoryId: string, subcategoryId: string, globalSettings?: GlobalSettings) => {
       const filCost = globalSettings?.defaultFilamentCostPerKg ?? 1399;
       const elecRate = globalSettings?.defaultElectricityRatePerKwh ?? 15;
+      const profitVal = globalSettings?.defaultProfitPercent ?? 25;
+      const profitMode = globalSettings?.defaultProfitMode ?? 'margin';
 
       setState({
         ...DEFAULT_CALCULATOR_STATE,
@@ -244,6 +246,10 @@ export function useCalculator() {
         electricity: {
           ...DEFAULT_CALCULATOR_STATE.electricity,
           ratePerKwh: elecRate,
+        },
+        profit: {
+          mode: profitMode,
+          value: profitVal,
         },
       });
     },

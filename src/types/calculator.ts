@@ -176,4 +176,6 @@ export interface Preset {
 export interface GlobalSettings {
   defaultFilamentCostPerKg: number;
   defaultElectricityRatePerKwh: number;
+  defaultProfitPercent: number;
+  defaultProfitMode: ProfitMode;
 }
