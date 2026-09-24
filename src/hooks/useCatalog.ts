@@ -439,9 +439,7 @@ export function useCatalog() {
             const currentFils = Array.isArray(currentSt.filaments) ? currentSt.filaments : [];
             const updatedFils =
               currentFils.length > 0
-                ? currentFils.map((f, idx) =>
-                    idx === 0 ? { ...f, costPerKg: newSettings.defaultFilamentCostPerKg } : f
-                  )
+                ? currentFils.map((f) => ({ ...f, costPerKg: newSettings.defaultFilamentCostPerKg }))
                 : [
                     {
                       id: 'fil-1',

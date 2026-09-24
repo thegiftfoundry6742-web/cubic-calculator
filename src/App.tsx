@@ -24,6 +24,22 @@ export function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'calculator'>('dashboard');
 
   const {
+    globalSettings,
+    updateGlobalSettings,
+    categories,
+    subcategories,
+    products,
+    addCategory,
+    updateCategory,
+    addSubcategory,
+    updateSubcategory,
+    saveCatalogProduct,
+    deleteProduct,
+    deleteCategory,
+    deleteSubcategory,
+  } = useCatalog();
+
+  const {
     state,
     results,
     setProductName,
@@ -44,25 +60,9 @@ export function App() {
     loadPreset,
     loadCatalogProduct,
     prepareNewProductForSubcategory,
-  } = useCalculator();
+  } = useCalculator(globalSettings);
 
   const { presets, savePreset, deletePreset } = usePresets();
-
-  const {
-    globalSettings,
-    updateGlobalSettings,
-    categories,
-    subcategories,
-    products,
-    addCategory,
-    updateCategory,
-    addSubcategory,
-    updateSubcategory,
-    saveCatalogProduct,
-    deleteProduct,
-    deleteCategory,
-    deleteSubcategory,
-  } = useCatalog();
 
   const [isPresetModalOpen, setIsPresetModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);

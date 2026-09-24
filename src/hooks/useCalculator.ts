@@ -57,8 +57,35 @@ export const DEFAULT_CALCULATOR_STATE: CalculatorState = {
   quantity: 1,
 };
 
-export function useCalculator() {
-  const [state, setState] = useState<CalculatorState>(DEFAULT_CALCULATOR_STATE);
+export function useCalculator(globalSettings?: GlobalSettings) {
+  const getInitialState = useCallback((settings?: GlobalSettings): CalculatorState => {
+    const filCost = settings?.defaultFilamentCostPerKg ?? 1399;
+    const elecRate = settings?.defaultElectricityRatePerKwh ?? 15;
+    const profitVal = settings?.defaultProfitPercent ?? 25;
+    const profitMode = settings?.defaultProfitMode ?? 'margin';
+
+    return {
+      ...DEFAULT_CALCULATOR_STATE,
+      filaments: [
+        {
+          id: 'default-1',
+          name: 'PLA Standard',
+          usedGrams: 264,
+          costPerKg: filCost,
+        },
+      ],
+      electricity: {
+        ...DEFAULT_CALCULATOR_STATE.electricity,
+        ratePerKwh: elecRate,
+      },
+      profit: {
+        mode: profitMode,
+        value: profitVal,
+      },
+    };
+  }, []);
+
+  const [state, setState] = useState<CalculatorState>(() => getInitialState(globalSettings));
 
   const results = useMemo(() => calculate3DPrintCost(state), [state]);
 
@@ -113,6 +140,7 @@ export function useCalculator() {
   }, []);
 
   const addFilament = useCallback(() => {
+    const defaultCost = globalSettings?.defaultFilamentCostPerKg ?? 1399;
     setState((prev) => ({
       ...prev,
       filaments: [
@@ -121,11 +149,11 @@ export function useCalculator() {
           id: `fil-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
           name: `Filament #${prev.filaments.length + 1}`,
           usedGrams: 50,
-          costPerKg: 1399,
+          costPerKg: defaultCost,
         },
       ],
     }));
-  }, []);
+  }, [globalSettings]);
 
   const updateFilament = useCallback((id: string, key: keyof FilamentItem, value: any) => {
     setState((prev) => ({
@@ -184,8 +212,8 @@ export function useCalculator() {
   }, []);
 
   const resetAll = useCallback(() => {
-    setState(DEFAULT_CALCULATOR_STATE);
-  }, []);
+    setState(getInitialState(globalSettings));
+  }, [getInitialState, globalSettings]);
 
   const loadPreset = useCallback((preset: Preset) => {
     setState((prev) => ({
