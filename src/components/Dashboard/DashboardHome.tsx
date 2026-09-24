@@ -3,7 +3,8 @@ import type { Category, Subcategory, CatalogProduct, GlobalSettings, ProfitMode 
 import { CategoryCard } from './CategoryCard';
 import { CreateCategoryModal, CreateSubcategoryModal } from './ModalForms';
 import { formatINR } from '../../utils/formatters';
-import { FolderPlus, Sparkles, Sliders, Save } from 'lucide-react';
+import { FolderPlus, Sparkles, Sliders, Save, FileSpreadsheet } from 'lucide-react';
+import { exportFullCatalogCustomerExcel, exportFullCatalogAdminExcel } from '../../utils/excelExporter';
 
 interface DashboardHomeProps {
   categories: Category[];
@@ -131,6 +132,40 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           </div>
 
           <div className="flex items-center gap-3 shrink-0 flex-wrap">
+            <button
+              onClick={() => {
+                if (products.length === 0) {
+                  if (showToast) showToast('No products in catalog to export.');
+                  return;
+                }
+                exportFullCatalogCustomerExcel(categories, subcategories, products);
+                if (showToast) showToast('Exporting full catalog (Customer Excel)...');
+              }}
+              type="button"
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl font-bold text-xs bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition-all cursor-pointer"
+              title="Download Excel quote for ALL categories & products"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-[#22c55e]" />
+              <span>Full Catalog Customer Excel</span>
+            </button>
+
+            <button
+              onClick={() => {
+                if (products.length === 0) {
+                  if (showToast) showToast('No products in catalog to export.');
+                  return;
+                }
+                exportFullCatalogAdminExcel(categories, subcategories, products);
+                if (showToast) showToast('Exporting full catalog (Admin Excel)...');
+              }}
+              type="button"
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl font-bold text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition-all cursor-pointer"
+              title="Download full admin master spreadsheet with all manufacturing costs & margins"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-amber-400" />
+              <span>Full Catalog Admin Excel</span>
+            </button>
+
             <button
               onClick={() => {
                 setEditingCategory(null);
