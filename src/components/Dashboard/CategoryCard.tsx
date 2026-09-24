@@ -32,7 +32,10 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
   onDeleteSubcategory,
 }) => {
   const categorySubcategories = subcategories.filter((s) => s.categoryId === category.id);
-  const categoryProducts = products.filter((p) => p.categoryId === category.id);
+  const subcatSet = new Set(categorySubcategories.map((s) => s.id));
+  const categoryProducts = products.filter(
+    (p) => p.categoryId === category.id || (p.subcategoryId && subcatSet.has(p.subcategoryId))
+  );
 
   const handleExportCustomerExcel = () => {
     exportCategoryCustomerExcel(category, subcategories, products);
