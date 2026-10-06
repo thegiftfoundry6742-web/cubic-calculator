@@ -63,9 +63,11 @@ export function useCalculator(globalSettings?: GlobalSettings) {
     const elecRate = settings?.defaultElectricityRatePerKwh ?? 15;
     const profitVal = settings?.defaultProfitPercent ?? 25;
     const profitMode = settings?.defaultProfitMode ?? 'margin';
+    const bulkQty = typeof settings?.defaultBulkQuantity === 'number' && settings.defaultBulkQuantity > 0 ? settings.defaultBulkQuantity : 1;
 
     return {
       ...DEFAULT_CALCULATOR_STATE,
+      quantity: bulkQty,
       filaments: [
         {
           id: 'default-1',
@@ -256,6 +258,7 @@ export function useCalculator(globalSettings?: GlobalSettings) {
       const elecRate = globalSettings?.defaultElectricityRatePerKwh ?? 15;
       const profitVal = globalSettings?.defaultProfitPercent ?? 25;
       const profitMode = globalSettings?.defaultProfitMode ?? 'margin';
+      const bulkQty = typeof globalSettings?.defaultBulkQuantity === 'number' && globalSettings.defaultBulkQuantity > 0 ? globalSettings.defaultBulkQuantity : 1;
 
       setState({
         ...DEFAULT_CALCULATOR_STATE,
@@ -263,6 +266,7 @@ export function useCalculator(globalSettings?: GlobalSettings) {
         categoryId,
         subcategoryId,
         productId: undefined,
+        quantity: bulkQty,
         filaments: [
           {
             id: `fil-${Date.now()}`,

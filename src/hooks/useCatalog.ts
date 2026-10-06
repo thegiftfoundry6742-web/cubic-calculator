@@ -12,6 +12,7 @@ const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   defaultElectricityRatePerKwh: 15,
   defaultProfitPercent: 25,
   defaultProfitMode: 'margin',
+  defaultBulkQuantity: undefined,
 };
 
 export function useCatalog() {
@@ -29,6 +30,7 @@ export function useCatalog() {
             defaultElectricityRatePerKwh: parsed.defaultElectricityRatePerKwh,
             defaultProfitPercent: typeof parsed.defaultProfitPercent === 'number' ? parsed.defaultProfitPercent : 25,
             defaultProfitMode: parsed.defaultProfitMode || 'margin',
+            defaultBulkQuantity: typeof parsed.defaultBulkQuantity === 'number' && parsed.defaultBulkQuantity > 0 ? parsed.defaultBulkQuantity : undefined,
           };
         }
       }
@@ -460,11 +462,17 @@ export function useCatalog() {
               value: typeof newSettings.defaultProfitPercent === 'number' ? newSettings.defaultProfitPercent : 25,
             };
 
+            const updatedQuantity =
+              typeof newSettings.defaultBulkQuantity === 'number' && newSettings.defaultBulkQuantity > 0
+                ? newSettings.defaultBulkQuantity
+                : currentSt.quantity || 1;
+
             const updatedSt = {
               ...currentSt,
               filaments: updatedFils,
               electricity: updatedElec,
               profit: updatedProfit,
+              quantity: updatedQuantity,
             };
 
             const updatedRes = calculate3DPrintCost(updatedSt as any);

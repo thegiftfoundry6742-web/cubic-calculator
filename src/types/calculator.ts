@@ -178,4 +178,5 @@ export interface GlobalSettings {
   defaultElectricityRatePerKwh: number;
   defaultProfitPercent: number;
   defaultProfitMode: ProfitMode;
+  defaultBulkQuantity?: number;
 }
