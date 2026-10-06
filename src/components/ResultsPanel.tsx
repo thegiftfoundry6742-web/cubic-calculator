@@ -229,8 +229,16 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({
         {/* Batch totals footer if quantity > 1 */}
         {isBatch && (
           <div className="mt-4 p-3 bg-slate-900 text-white rounded-xl space-y-1.5 text-xs font-medium">
+            <div className="flex justify-between text-blue-300">
+              <span>Total Batch Filament ({results.quantity} units):</span>
+              <span className="font-bold font-mono">
+                📦 {results.totalBatchFilamentKg >= 1
+                  ? `${Number.isInteger(results.totalBatchFilamentKg) ? results.totalBatchFilamentKg : results.totalBatchFilamentKg.toFixed(2)} kg (${results.totalBatchFilamentGrams.toLocaleString('en-IN')} g)`
+                  : `${results.totalBatchFilamentGrams.toLocaleString('en-IN')} g`}
+              </span>
+            </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">Total Batch Production Cost ({results.quantity} units):</span>
+              <span className="text-slate-400">Total Batch Production Cost:</span>
               <span className="font-bold">{formatINR(results.totalProductionCost)}</span>
             </div>
             <div className="flex justify-between text-emerald-400">

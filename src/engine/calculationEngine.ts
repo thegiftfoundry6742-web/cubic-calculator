@@ -117,16 +117,34 @@ export function calculate3DPrintCost(state: CalculatorState): CalculationResult 
   const actualMarkupAfterDiscount =
     baseProductionCost > 0 ? (actualProfitAfterDiscount / baseProductionCost) * 100 : 0;
 
-  // 9. BATCH / QUANTITY TOTALS
+  // 9. BATCH / QUANTITY TOTALS & FILAMENT WEIGHT
   const quantity = Math.max(1, Math.floor(Number(state.quantity) || 1));
+
+  const filamentResultsWithBatch = filamentResults.map((f) => {
+    const totalBatchGrams = f.usedGrams * quantity;
+    const totalBatchKg = totalBatchGrams / 1000;
+    return {
+      ...f,
+      totalBatchGrams,
+      totalBatchKg,
+    };
+  });
+
+  const totalSingleUnitGrams = filamentResults.reduce((sum, item) => sum + item.usedGrams, 0);
+  const totalBatchFilamentGrams = totalSingleUnitGrams * quantity;
+  const totalBatchFilamentKg = totalBatchFilamentGrams / 1000;
+
   const totalProductionCost = baseProductionCost * quantity;
   const totalSellingPrice = finalSellingPrice * quantity;
   const totalProfit = actualProfitAfterDiscount * quantity;
   const totalDiscountAmount = discountAmount * quantity;
 
   return {
-    filamentResults,
+    filamentResults: filamentResultsWithBatch,
     totalMaterialCost,
+    totalSingleUnitGrams,
+    totalBatchFilamentGrams,
+    totalBatchFilamentKg,
 
     calculatedKwh,
     electricityCost,

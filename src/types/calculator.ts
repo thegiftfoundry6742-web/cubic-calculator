@@ -80,8 +80,13 @@ export interface CalculationResult {
     usedGrams: number;
     costPerKg: number;
     cost: number;
+    totalBatchGrams: number;
+    totalBatchKg: number;
   }[];
   totalMaterialCost: number;
+  totalSingleUnitGrams: number;
+  totalBatchFilamentGrams: number;
+  totalBatchFilamentKg: number;
 
   // Electricity breakdown
   calculatedKwh: number;

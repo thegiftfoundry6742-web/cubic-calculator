@@ -234,8 +234,16 @@ export function exportCategoryAdminExcel(
       const st = prod.calculatorState;
       const dimMultiline = formatDimensions(prod.dimensions);
 
+      const qty = res.quantity || 1;
       const filamentLines = (res.filamentResults || [])
-        .map((f) => `${f.name}: ${f.usedGrams}g @ ₹${f.costPerKg}/kg (₹${f.cost.toFixed(2)})`)
+        .map((f) => {
+          const totalGrams = f.totalBatchGrams || (f.usedGrams * qty);
+          const totalKg = totalGrams / 1000;
+          const batchStr = totalKg >= 1
+            ? `${Number.isInteger(totalKg) ? totalKg : totalKg.toFixed(2)} kg`
+            : `${totalGrams.toLocaleString('en-IN')} g`;
+          return `${f.name}: ${f.usedGrams}g/unit (Total Batch: ${batchStr} for ${qty} units) @ ₹${f.costPerKg}/kg (₹${f.cost.toFixed(2)})`;
+        })
         .join('\r\n') || 'None';
 
       const elecHours = st.electricity?.printHours || 0;
@@ -254,7 +262,6 @@ export function exportCategoryAdminExcel(
           : 'None (0%)';
 
       const profitSetting = `${st.profit.value}${st.profit.mode === 'fixed' ? ' ₹' : `% ${st.profit.mode}`}`;
-      const qty = res.quantity || 1;
       const totalBatchProdCost = res.totalProductionCost ?? (res.baseProductionCost * qty);
       const totalBatchQuote = res.totalSellingPrice ?? (res.finalSellingPrice * qty);
       const totalBatchProfit = res.totalProfit ?? ((res.actualProfitAfterDiscount || (res.finalSellingPrice - res.baseProductionCost)) * qty);
@@ -591,8 +598,16 @@ export function exportFullCatalogAdminExcel(
         const st = prod.calculatorState;
         const dimMultiline = formatDimensions(prod.dimensions);
 
+        const qty = res.quantity || 1;
         const filamentLines = (res.filamentResults || [])
-          .map((f) => `${f.name}: ${f.usedGrams}g @ ₹${f.costPerKg}/kg (₹${f.cost.toFixed(2)})`)
+          .map((f) => {
+            const totalGrams = f.totalBatchGrams || (f.usedGrams * qty);
+            const totalKg = totalGrams / 1000;
+            const batchStr = totalKg >= 1
+              ? `${Number.isInteger(totalKg) ? totalKg : totalKg.toFixed(2)} kg`
+              : `${totalGrams.toLocaleString('en-IN')} g`;
+            return `${f.name}: ${f.usedGrams}g/unit (Total Batch: ${batchStr} for ${qty} units) @ ₹${f.costPerKg}/kg (₹${f.cost.toFixed(2)})`;
+          })
           .join('\r\n') || 'None';
 
         const elecHours = st.electricity?.printHours || 0;
@@ -611,7 +626,6 @@ export function exportFullCatalogAdminExcel(
             : 'None (0%)';
 
         const profitSetting = `${st.profit.value}${st.profit.mode === 'fixed' ? ' ₹' : `% ${st.profit.mode}`}`;
-        const qty = res.quantity || 1;
         const totalBatchProdCost = res.totalProductionCost ?? (res.baseProductionCost * qty);
         const totalBatchQuote = res.totalSellingPrice ?? (res.finalSellingPrice * qty);
         const totalBatchProfit = res.totalProfit ?? ((res.actualProfitAfterDiscount || (res.finalSellingPrice - res.baseProductionCost)) * qty);

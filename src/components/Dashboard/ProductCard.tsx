@@ -27,6 +27,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
 
   const hasDim = dims.some((d) => d.lengthMm > 0 || d.widthMm > 0 || d.heightMm > 0 || d.diameterMm > 0);
 
+  const singleGrams = res.totalSingleUnitGrams || res.filamentResults.reduce((sum, f) => sum + (f.usedGrams || 0), 0);
+  const qty = res.quantity || 1;
+  const batchGrams = res.totalBatchFilamentGrams || singleGrams * qty;
+  const batchKg = batchGrams / 1000;
+  const batchWeightStr = batchKg >= 1
+    ? `${Number.isInteger(batchKg) ? batchKg : batchKg.toFixed(2)} kg`
+    : `${batchGrams.toLocaleString('en-IN')} g`;
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 hover:border-emerald-300 shadow-2xs hover:shadow-md transition-all p-4 flex flex-col justify-between gap-3">
       {/* Top Title & Dimensions */}
@@ -77,9 +85,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
         )}
       </div>
 
-      {/* Pricing Summary Stats */}
+      {/* Pricing & Filament Summary Stats */}
       <div className="pt-2 border-t border-slate-100 space-y-1.5 text-xs">
-        <div className="flex justify-between items-center text-slate-600">
+        {/* MOQ & Total Filament Badge */}
+        <div className="flex items-center justify-between text-[11px] text-slate-600 font-semibold bg-slate-50 px-2 py-1 rounded-md border border-slate-200/70">
+          <span>MOQ: <strong className="text-slate-900">{qty} unit{qty > 1 ? 's' : ''}</strong></span>
+          <span className="text-blue-700 font-mono font-bold">📦 {batchWeightStr}</span>
+        </div>
+
+        <div className="flex justify-between items-center text-slate-600 pt-0.5">
           <span>Production Cost:</span>
           <span className="font-semibold text-slate-900">{formatINR(res.baseProductionCost)}</span>
         </div>

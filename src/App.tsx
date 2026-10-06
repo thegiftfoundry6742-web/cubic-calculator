@@ -243,6 +243,7 @@ Markup: ${formatPercent(results.actualMarkupAfterDiscount)}`;
                 <MaterialSection
                   filaments={state.filaments}
                   totalMaterialCost={results.totalMaterialCost}
+                  quantity={state.quantity}
                   onAddFilament={addFilament}
                   onUpdateFilament={updateFilament}
                   onRemoveFilament={removeFilament}

@@ -1,11 +1,21 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Info } from 'lucide-react';
+import { Plus, Trash2, Info, PackageCheck } from 'lucide-react';
 import type { FilamentItem } from '../types/calculator';
 import { formatINR } from '../utils/formatters';
+
+function formatFilamentWeight(grams: number): string {
+  if (grams >= 1000) {
+    const kg = grams / 1000;
+    const formattedKg = Number.isInteger(kg) ? kg.toString() : kg.toFixed(2);
+    return `${formattedKg} kg (${grams.toLocaleString('en-IN')} g)`;
+  }
+  return `${grams.toLocaleString('en-IN')} g`;
+}
 
 interface MaterialSectionProps {
   filaments: FilamentItem[];
   totalMaterialCost: number;
+  quantity?: number;
   onAddFilament: () => void;
   onUpdateFilament: (id: string, key: keyof FilamentItem, value: any) => void;
   onRemoveFilament: (id: string) => void;
@@ -14,6 +24,7 @@ interface MaterialSectionProps {
 export const MaterialSection: React.FC<MaterialSectionProps> = ({
   filaments,
   totalMaterialCost,
+  quantity = 1,
   onAddFilament,
   onUpdateFilament,
   onRemoveFilament,
@@ -29,6 +40,10 @@ export const MaterialSection: React.FC<MaterialSectionProps> = ({
     setUnits((prev) => ({ ...prev, [id]: nextUnit }));
   };
 
+  const qty = Math.max(1, Math.floor(quantity || 1));
+  const totalSingleUnitGrams = filaments.reduce((sum, f) => sum + (f.usedGrams || 0), 0);
+  const totalBatchGrams = totalSingleUnitGrams * qty;
+
   return (
     <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs mb-5 transition-all">
       {/* Section Header */}
@@ -42,7 +57,7 @@ export const MaterialSection: React.FC<MaterialSectionProps> = ({
               Material Cost (Filament)
             </h2>
             <p className="text-xs text-slate-500">
-              Calculate exact spool consumption per print.
+              Calculate exact spool consumption per print and total batch requirement.
             </p>
           </div>
         </div>
@@ -58,6 +73,7 @@ export const MaterialSection: React.FC<MaterialSectionProps> = ({
           const unit = getUnit(f.id);
           const displayUsed = unit === 'kg' ? (f.usedGrams / 1000).toString() : f.usedGrams.toString();
           const rowCost = (f.usedGrams / 1000) * f.costPerKg;
+          const rowBatchGrams = f.usedGrams * qty;
 
           return (
             <div
@@ -93,7 +109,7 @@ export const MaterialSection: React.FC<MaterialSectionProps> = ({
                 {/* Filament Used */}
                 <div className="sm:col-span-6">
                   <label htmlFor={`filament-used-${f.id}`} className="block text-[11px] font-semibold text-slate-600 uppercase tracking-wide mb-1">
-                    Total Filament Used
+                    Total Filament Used (Per Unit)
                   </label>
                   <div className="flex rounded-lg shadow-2xs">
                     <input
@@ -148,9 +164,14 @@ export const MaterialSection: React.FC<MaterialSectionProps> = ({
               </div>
 
               {/* Calculated row subtotal summary */}
-              <div className="flex items-center justify-between text-xs text-slate-500 pt-1 px-1 border-t border-slate-200/60 font-mono">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-500 pt-1 px-1 border-t border-slate-200/60 gap-1 font-mono">
                 <span>
                   Calculation: ({f.usedGrams}g ÷ 1000) × ₹{f.costPerKg}/kg
+                  {qty > 1 && (
+                    <span className="text-blue-700 font-semibold font-sans ml-2">
+                      • Batch ({qty} qty): <strong>{formatFilamentWeight(rowBatchGrams)}</strong>
+                    </span>
+                  )}
                 </span>
                 <span className="font-bold text-slate-800 font-sans">
                   Subtotal: {formatINR(rowCost)}
@@ -160,6 +181,21 @@ export const MaterialSection: React.FC<MaterialSectionProps> = ({
           );
         })}
       </div>
+
+      {/* Batch Filament Weight Banner if MOQ > 1 */}
+      {qty > 1 && (
+        <div className="mt-4 p-3.5 bg-blue-50/90 rounded-xl border border-blue-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-semibold text-blue-950">
+          <div className="flex items-center gap-2">
+            <PackageCheck className="w-4 h-4 text-blue-600 shrink-0" />
+            <span>
+              Total Filament Required to Print <strong className="text-blue-900 font-bold">{qty} Units</strong>:
+            </span>
+          </div>
+          <div className="text-sm font-extrabold text-blue-700 bg-white px-3 py-1.5 rounded-lg border border-blue-300 shadow-2xs self-start sm:self-auto">
+            📦 {formatFilamentWeight(totalBatchGrams)}
+          </div>
+        </div>
+      )}
 
       {/* Add Filament Button */}
       <div className="mt-4 pt-2 flex items-center justify-between">
