@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import type { Category, Subcategory, CatalogProduct, DimensionItem } from '../types/calculator';
-import { isProductInCategory, isProductInSubcategory } from '../types/calculator';
+import { isProductInCategory, isProductInSubcategory, getProductForCategory } from '../types/calculator';
 
 /**
  * Helper to download workbook buffer as file
@@ -119,7 +119,8 @@ export function exportCategoryCustomerExcel(
     let groupQuote = 0;
 
     group.products.forEach((prod) => {
-      const res = prod.calculationResult;
+      const catData = getProductForCategory(prod, category.id);
+      const res = catData.calculationResult;
       const st = prod.calculatorState;
       const dimMultiline = formatDimensions(prod.dimensions);
 
@@ -128,7 +129,7 @@ export function exportCategoryCustomerExcel(
           ? `${st.discount.value}${st.discount.mode === 'percentage' ? '%' : ' ₹'} (-₹${res.discountAmount.toFixed(2)})`
           : 'None (0%)';
 
-      const qty = res.quantity || 1;
+      const qty = catData.quantity;
       const totalQuote = res.totalSellingPrice ?? (res.finalSellingPrice * qty);
 
       groupMOQ += qty;
@@ -164,12 +165,16 @@ export function exportCategoryCustomerExcel(
   });
 
   // Calculate Category Grand Totals
-  const totalMOQ = categoryProducts.reduce((sum, p) => sum + (p.calculationResult?.quantity || 1), 0);
+  const totalMOQ = categoryProducts.reduce((sum, p) => sum + getProductForCategory(p, category.id).quantity, 0);
   const totalBatchQuote = categoryProducts.reduce(
-    (sum, p) =>
-      sum +
-      (p.calculationResult?.totalSellingPrice ??
-        ((p.calculationResult?.finalSellingPrice || 0) * (p.calculationResult?.quantity || 1))),
+    (sum, p) => {
+      const { calculationResult: res, quantity: qty } = getProductForCategory(p, category.id);
+      return (
+        sum +
+        (res?.totalSellingPrice ??
+          ((res?.finalSellingPrice || 0) * (qty || 1)))
+      );
+    },
     0
   );
 
@@ -231,11 +236,12 @@ export function exportCategoryAdminExcel(
     let groupProfit = 0;
 
     group.products.forEach((prod) => {
-      const res = prod.calculationResult;
+      const catData = getProductForCategory(prod, category.id);
+      const res = catData.calculationResult;
       const st = prod.calculatorState;
       const dimMultiline = formatDimensions(prod.dimensions);
 
-      const qty = res.quantity || 1;
+      const qty = catData.quantity;
       const filamentLines = (res.filamentResults || [])
         .map((f) => {
           const totalGrams = f.totalBatchGrams || (f.usedGrams * qty);
@@ -262,7 +268,7 @@ export function exportCategoryAdminExcel(
           ? `${st.discount.value}${st.discount.mode === 'percentage' ? '%' : ' ₹'} (-₹${res.discountAmount.toFixed(2)})`
           : 'None (0%)';
 
-      const profitSetting = `${st.profit.value}${st.profit.mode === 'fixed' ? ' ₹' : `% ${st.profit.mode}`}`;
+      const profitSetting = `${catData.profitPercent}${catData.profitMode === 'fixed' ? ' ₹' : `% ${catData.profitMode}`}`;
       const totalBatchProdCost = res.totalProductionCost ?? (res.baseProductionCost * qty);
       const totalBatchQuote = res.totalSellingPrice ?? (res.finalSellingPrice * qty);
       const totalBatchProfit = res.totalProfit ?? ((res.actualProfitAfterDiscount || (res.finalSellingPrice - res.baseProductionCost)) * qty);
@@ -328,17 +334,26 @@ export function exportCategoryAdminExcel(
   });
 
   // Calculate Admin Grand Totals
-  const totalMOQ = categoryProducts.reduce((sum, p) => sum + (p.calculationResult?.quantity || 1), 0);
+  const totalMOQ = categoryProducts.reduce((sum, p) => sum + getProductForCategory(p, category.id).quantity, 0);
   const totalBatchProdCostSum = categoryProducts.reduce(
-    (sum, p) => sum + (p.calculationResult?.totalProductionCost ?? ((p.calculationResult?.baseProductionCost || 0) * (p.calculationResult?.quantity || 1))),
+    (sum, p) => {
+      const { calculationResult: res, quantity: qty } = getProductForCategory(p, category.id);
+      return sum + (res?.totalProductionCost ?? ((res?.baseProductionCost || 0) * (qty || 1)));
+    },
     0
   );
   const totalBatchQuoteSum = categoryProducts.reduce(
-    (sum, p) => sum + (p.calculationResult?.totalSellingPrice ?? ((p.calculationResult?.finalSellingPrice || 0) * (p.calculationResult?.quantity || 1))),
+    (sum, p) => {
+      const { calculationResult: res, quantity: qty } = getProductForCategory(p, category.id);
+      return sum + (res?.totalSellingPrice ?? ((res?.finalSellingPrice || 0) * (qty || 1)));
+    },
     0
   );
   const totalBatchProfitSum = categoryProducts.reduce(
-    (sum, p) => sum + (p.calculationResult?.totalProfit ?? (((p.calculationResult?.actualProfitAfterDiscount || 0) * (p.calculationResult?.quantity || 1)))),
+    (sum, p) => {
+      const { calculationResult: res, quantity: qty } = getProductForCategory(p, category.id);
+      return sum + (res?.totalProfit ?? (((res?.actualProfitAfterDiscount || 0) * (qty || 1))));
+    },
     0
   );
 
@@ -431,7 +446,8 @@ export function exportFullCatalogCustomerExcel(
       let subQuote = 0;
 
       group.products.forEach((prod) => {
-        const res = prod.calculationResult;
+        const catData = getProductForCategory(prod, cat.id);
+        const res = catData.calculationResult;
         const st = prod.calculatorState;
         const dimMultiline = formatDimensions(prod.dimensions);
 
@@ -440,7 +456,7 @@ export function exportFullCatalogCustomerExcel(
             ? `${st.discount.value}${st.discount.mode === 'percentage' ? '%' : ' ₹'} (-₹${res.discountAmount.toFixed(2)})`
             : 'None (0%)';
 
-        const qty = res.quantity || 1;
+        const qty = catData.quantity;
         const totalQuote = res.totalSellingPrice ?? (res.finalSellingPrice * qty);
 
         subMOQ += qty;
@@ -595,11 +611,12 @@ export function exportFullCatalogAdminExcel(
       let subProfit = 0;
 
       group.products.forEach((prod) => {
-        const res = prod.calculationResult;
+        const catData = getProductForCategory(prod, cat.id);
+        const res = catData.calculationResult;
         const st = prod.calculatorState;
         const dimMultiline = formatDimensions(prod.dimensions);
 
-        const qty = res.quantity || 1;
+        const qty = catData.quantity;
         const filamentLines = (res.filamentResults || [])
           .map((f) => {
             const totalGrams = f.totalBatchGrams || (f.usedGrams * qty);
@@ -626,7 +643,7 @@ export function exportFullCatalogAdminExcel(
             ? `${st.discount.value}${st.discount.mode === 'percentage' ? '%' : ' ₹'} (-₹${res.discountAmount.toFixed(2)})`
             : 'None (0%)';
 
-        const profitSetting = `${st.profit.value}${st.profit.mode === 'fixed' ? ' ₹' : `% ${st.profit.mode}`}`;
+        const profitSetting = `${catData.profitPercent}${catData.profitMode === 'fixed' ? ' ₹' : `% ${catData.profitMode}`}`;
         const totalBatchProdCost = res.totalProductionCost ?? (res.baseProductionCost * qty);
         const totalBatchQuote = res.totalSellingPrice ?? (res.finalSellingPrice * qty);
         const totalBatchProfit = res.totalProfit ?? ((res.actualProfitAfterDiscount || (res.finalSellingPrice - res.baseProductionCost)) * qty);

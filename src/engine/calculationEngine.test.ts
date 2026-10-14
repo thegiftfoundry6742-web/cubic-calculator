@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { calculate3DPrintCost } from './calculationEngine';
-import type { CalculatorState } from '../types/calculator';
+import type { CalculatorState, CatalogProduct } from '../types/calculator';
+import { getProductForCategory } from '../types/calculator';
 
 describe('3D Print Cost Calculation Engine', () => {
   const sampleState: CalculatorState = {
@@ -169,5 +170,77 @@ describe('3D Print Cost Calculation Engine', () => {
     expect(result.totalProductionCost).toBeCloseTo(result.baseProductionCost * 10, 2);
     expect(result.totalSellingPrice).toBeCloseTo(result.finalSellingPrice * 10, 2);
     expect(result.totalProfit).toBeCloseTo(result.actualProfitAfterDiscount * 10, 2);
+  });
+
+  it('supports category-specific overrides via getProductForCategory and independent calculation results', () => {
+    // Create state for Category A (e.g. Retail MOQ 1, 25% margin, filament 1399)
+    const stateCatA: CalculatorState = {
+      ...sampleState,
+      quantity: 1,
+      profit: { mode: 'margin', value: 25 },
+    };
+    const resA = calculate3DPrintCost(stateCatA);
+
+    // Create state for Category B (e.g. B2B Bulk MOQ 200, 35% margin, filament 1100)
+    const stateCatB: CalculatorState = {
+      ...sampleState,
+      quantity: 200,
+      profit: { mode: 'margin', value: 35 },
+      filaments: [{ ...sampleState.filaments[0], costPerKg: 1100 }],
+    };
+    const resB = calculate3DPrintCost(stateCatB);
+
+    const product: CatalogProduct = {
+      id: 'prod-multi-1',
+      categoryId: 'cat-retail',
+      subcategoryId: 'sub-1',
+      name: 'Custom Phone Stand',
+      dimensions: sampleState.dimensions,
+      calculatorState: stateCatA,
+      calculationResult: resA,
+      categoryAssignments: [
+        {
+          categoryId: 'cat-retail',
+          subcategoryId: 'sub-1',
+          quantity: 1,
+          profitPercent: 25,
+          profitMode: 'margin' as const,
+          filamentCostPerKg: 1399,
+          calculationResult: resA,
+        },
+        {
+          categoryId: 'cat-b2b',
+          subcategoryId: 'sub-b2b',
+          quantity: 200,
+          profitPercent: 35,
+          profitMode: 'margin' as const,
+          filamentCostPerKg: 1100,
+          calculationResult: resB,
+        },
+      ],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    // Evaluate in Category A (Retail)
+    const retailData = getProductForCategory(product, 'cat-retail');
+    expect(retailData.quantity).toBe(1);
+    expect(retailData.profitPercent).toBe(25);
+    expect(retailData.filamentCostPerKg).toBe(1399);
+    expect(retailData.calculationResult.quantity).toBe(1);
+
+    // Evaluate in Category B (B2B Bulk)
+    const b2bData = getProductForCategory(product, 'cat-b2b');
+    expect(b2bData.quantity).toBe(200);
+    expect(b2bData.profitPercent).toBe(35);
+    expect(b2bData.filamentCostPerKg).toBe(1100);
+    expect(b2bData.calculationResult.quantity).toBe(200);
+
+    // Material cost per unit in Category B must reflect ₹1100/kg (264g * 1100 / 1000 = 290.4)
+    expect(b2bData.calculationResult.totalMaterialCost).toBeCloseTo(290.4, 2);
+
+    // Total batch quote in Category B must reflect 200 units
+    expect(b2bData.calculationResult.totalSellingPrice).toBeGreaterThan(0);
+    expect(b2bData.calculationResult.totalSellingPrice).not.toEqual(retailData.calculationResult.totalSellingPrice);
   });
 });

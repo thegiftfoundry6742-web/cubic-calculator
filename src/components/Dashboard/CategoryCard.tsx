@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Category, Subcategory, CatalogProduct } from '../../types/calculator';
-import { isProductInCategory } from '../../types/calculator';
+import { isProductInCategory, getProductForCategory } from '../../types/calculator';
 import { exportCategoryCustomerExcel, exportCategoryAdminExcel } from '../../utils/excelExporter';
 import { formatINR } from '../../utils/formatters';
 import {
@@ -36,16 +36,16 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
   const catSubs = subcategories.filter((s) => s.categoryId === category.id);
   const catProds = products.filter((p) => isProductInCategory(p, category.id));
 
-  // Compute stats for card preview
+  // Compute stats for card preview using getProductForCategory
   const totalSellingPrice = catProds.reduce((sum, p) => {
-    const res = p.calculationResult;
+    const { calculationResult: res } = getProductForCategory(p, category.id);
     if (!res) return sum;
     const qty = res.quantity || 1;
     return sum + (res.totalSellingPrice ?? ((res.finalSellingPrice || 0) * qty));
   }, 0);
 
   const totalFilamentGrams = catProds.reduce((sum, p) => {
-    const res = p.calculationResult;
+    const { calculationResult: res } = getProductForCategory(p, category.id);
     if (!res) return sum;
     const singleGrams = res.totalSingleUnitGrams || res.filamentResults.reduce((fSum, f) => fSum + (f.usedGrams || 0), 0);
     const qty = res.quantity || 1;
@@ -135,6 +135,17 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
           <p className="text-xs text-slate-500 mt-1 line-clamp-2 min-h-[32px]">
             {category.description || 'Explore products, pricing parameters, and manufacturing batch costs.'}
           </p>
+
+          {/* Category Rates Pill */}
+          {category.rates && (
+            <div className="mt-2.5 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-[10px] text-slate-600 font-semibold flex-wrap gap-1">
+              <span>Filament: <strong className="text-slate-900">₹{category.rates.filamentCostPerKg || 1399}/kg</strong></span>
+              <span>Margin: <strong className="text-emerald-700">{category.rates.profitPercent || 25}%</strong></span>
+              {category.rates.bulkQuantity && (
+                <span>MOQ: <strong className="text-blue-700">{category.rates.bulkQuantity}</strong></span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Subcategories Preview Pills */}

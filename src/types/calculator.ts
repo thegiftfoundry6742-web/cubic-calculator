@@ -54,12 +54,24 @@ export interface DimensionItem {
   diameterMm: number;
 }
 
-// Retain legacy type alias for compatibility
-export type ProductDimensions = DimensionItem[];
+export interface CategoryRates {
+  filamentCostPerKg?: number;
+  electricityRatePerKwh?: number;
+  profitPercent?: number;
+  profitMode?: ProfitMode;
+  bulkQuantity?: number;
+}
 
 export interface CategoryAssignment {
   categoryId: string;
   subcategoryId?: string;
+  // Category-specific overrides for this product:
+  quantity?: number;
+  profitPercent?: number;
+  profitMode?: ProfitMode;
+  filamentCostPerKg?: number;
+  electricityRatePerKwh?: number;
+  calculationResult?: CalculationResult;
 }
 
 export interface CalculatorState {
@@ -150,6 +162,7 @@ export interface Category {
   name: string;
   description?: string;
   createdAt: number;
+  rates?: CategoryRates;
 }
 
 export interface Subcategory {
@@ -185,6 +198,45 @@ export function isProductInSubcategory(product: CatalogProduct, subcategoryId: s
   if (product.categoryAssignments?.some((a) => a.subcategoryId === subcategoryId)) return true;
   if (product.calculatorState?.categoryAssignments?.some((a) => a.subcategoryId === subcategoryId)) return true;
   return false;
+}
+
+export function getProductForCategory(
+  product: CatalogProduct,
+  categoryId?: string
+): {
+  quantity: number;
+  calculationResult: CalculationResult;
+  profitPercent: number;
+  profitMode: ProfitMode;
+  filamentCostPerKg: number;
+  assignment?: CategoryAssignment;
+} {
+  const assignment = categoryId
+    ? product.categoryAssignments?.find((a) => a.categoryId === categoryId)
+    : undefined;
+
+  const firstFil = product.calculatorState?.filaments?.[0];
+  const defaultFilCost = firstFil ? firstFil.costPerKg : 1399;
+
+  if (assignment && assignment.calculationResult) {
+    return {
+      quantity: assignment.quantity ?? assignment.calculationResult.quantity,
+      calculationResult: assignment.calculationResult,
+      profitPercent: assignment.profitPercent ?? product.calculatorState?.profit?.value ?? 25,
+      profitMode: assignment.profitMode ?? product.calculatorState?.profit?.mode ?? 'margin',
+      filamentCostPerKg: assignment.filamentCostPerKg ?? defaultFilCost,
+      assignment,
+    };
+  }
+
+  return {
+    quantity: product.calculationResult?.quantity ?? product.calculatorState?.quantity ?? 1,
+    calculationResult: product.calculationResult,
+    profitPercent: product.calculatorState?.profit?.value ?? 25,
+    profitMode: product.calculatorState?.profit?.mode ?? 'margin',
+    filamentCostPerKg: defaultFilCost,
+    assignment,
+  };
 }
 
 export interface Preset {

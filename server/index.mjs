@@ -45,6 +45,7 @@ const server = http.createServer(async (req, res) => {
         id: r.id,
         name: r.name,
         description: r.description,
+        rates: r.rates || null,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       }));
@@ -91,12 +92,12 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/categories') {
       const client = getPgClient();
       await client.connect();
-      const { id, name, description } = body;
+      const { id, name, description, rates } = body;
       await client.query(
-        `INSERT INTO public.categories (id, name, description, updated_at)
-         VALUES ($1, $2, $3, NOW())
-         ON CONFLICT (id) DO UPDATE SET name = $2, description = $3, updated_at = NOW();`,
-        [id, name, description || '']
+        `INSERT INTO public.categories (id, name, description, rates, updated_at)
+         VALUES ($1, $2, $3, $4::jsonb, NOW())
+         ON CONFLICT (id) DO UPDATE SET name = $2, description = $3, rates = $4::jsonb, updated_at = NOW();`,
+        [id, name, description || '', JSON.stringify(rates || null)]
       );
       await client.end();
       sendJson(res, 200, { success: true });

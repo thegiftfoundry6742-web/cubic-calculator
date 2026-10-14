@@ -34,6 +34,7 @@ export function App() {
     addSubcategory,
     updateSubcategory,
     saveCatalogProduct,
+    updateCategoryRates,
     deleteProduct,
     deleteCategory,
     deleteSubcategory,
@@ -218,6 +219,7 @@ Markup: ${formatPercent(results.actualMarkupAfterDiscount)}`;
             products={products}
             globalSettings={globalSettings}
             onUpdateGlobalSettings={updateGlobalSettings}
+            onUpdateCategoryRates={updateCategoryRates}
             onAddCategory={addCategory}
             onUpdateCategory={updateCategory}
             onAddSubcategory={addSubcategory}
@@ -250,6 +252,7 @@ Markup: ${formatPercent(results.actualMarkupAfterDiscount)}`;
               presets={presets}
               onLoadPreset={loadPreset}
               onSavePresetClick={() => setIsPresetModalOpen(true)}
+              calculatorState={state}
             />
 
             {/* 2-Column Responsive Layout */}

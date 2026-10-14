@@ -1,6 +1,6 @@
-import React from 'react';
-import type { Category, Subcategory, CatalogProduct } from '../../types/calculator';
-import { isProductInCategory, isProductInSubcategory } from '../../types/calculator';
+import React, { useState, useEffect } from 'react';
+import type { Category, Subcategory, CatalogProduct, CategoryRates, ProfitMode } from '../../types/calculator';
+import { isProductInCategory, isProductInSubcategory, getProductForCategory } from '../../types/calculator';
 import { SubcategoryRow } from './SubcategoryRow';
 import { exportCategoryCustomerExcel, exportCategoryAdminExcel } from '../../utils/excelExporter';
 import { formatINR } from '../../utils/formatters';
@@ -15,6 +15,8 @@ import {
   Layers,
   ChevronRight,
   Package,
+  Sliders,
+  Save,
 } from 'lucide-react';
 
 interface CategoryDetailPageProps {
@@ -32,6 +34,7 @@ interface CategoryDetailPageProps {
   onDeleteProduct: (productId: string) => void;
   onDeleteCategory: (categoryId: string) => void;
   onDeleteSubcategory: (subcategoryId: string) => void;
+  onUpdateCategoryRates?: (categoryId: string, rates: CategoryRates, applyToExisting: boolean) => Promise<void>;
   showToast?: (msg: string) => void;
 }
 
@@ -50,33 +53,51 @@ export const CategoryDetailPage: React.FC<CategoryDetailPageProps> = ({
   onDeleteProduct,
   onDeleteCategory,
   onDeleteSubcategory,
+  onUpdateCategoryRates,
   showToast,
 }) => {
   const categorySubcategories = subcategories.filter((s) => s.categoryId === category.id);
   const categoryProducts = products.filter((p) => isProductInCategory(p, category.id));
 
-  // Financial & Batch statistics for this specific category
+  // Category-specific rates free-text state
+  const [filamentInputStr, setFilamentInputStr] = useState<string>('');
+  const [electricityInputStr, setElectricityInputStr] = useState<string>('');
+  const [profitInputStr, setProfitInputStr] = useState<string>('');
+  const [profitMode, setProfitMode] = useState<ProfitMode>('margin');
+  const [bulkQtyInputStr, setBulkQtyInputStr] = useState<string>('');
+  const [isSavingRates, setIsSavingRates] = useState<boolean>(false);
+
+  useEffect(() => {
+    const r = category.rates;
+    setFilamentInputStr(r?.filamentCostPerKg !== undefined ? r.filamentCostPerKg.toString() : '1399');
+    setElectricityInputStr(r?.electricityRatePerKwh !== undefined ? r.electricityRatePerKwh.toString() : '15');
+    setProfitInputStr(r?.profitPercent !== undefined ? r.profitPercent.toString() : '25');
+    setProfitMode(r?.profitMode || 'margin');
+    setBulkQtyInputStr(r?.bulkQuantity !== undefined && r.bulkQuantity > 0 ? r.bulkQuantity.toString() : '');
+  }, [category.id, category.rates]);
+
+  // Financial & Batch statistics for this specific category using getProductForCategory
   const totalBatchQuantity = categoryProducts.reduce((sum, p) => {
-    const qty = p.calculationResult?.quantity ?? p.calculatorState?.quantity ?? 1;
-    return sum + qty;
+    const { quantity } = getProductForCategory(p, category.id);
+    return sum + quantity;
   }, 0);
 
   const totalProductionCost = categoryProducts.reduce((sum, p) => {
-    const res = p.calculationResult;
+    const { calculationResult: res } = getProductForCategory(p, category.id);
     if (!res) return sum;
     const qty = res.quantity || 1;
     return sum + (res.totalProductionCost ?? ((res.baseProductionCost || 0) * qty));
   }, 0);
 
   const totalSellingPrice = categoryProducts.reduce((sum, p) => {
-    const res = p.calculationResult;
+    const { calculationResult: res } = getProductForCategory(p, category.id);
     if (!res) return sum;
     const qty = res.quantity || 1;
     return sum + (res.totalSellingPrice ?? ((res.finalSellingPrice || 0) * qty));
   }, 0);
 
   const totalNetProfit = categoryProducts.reduce((sum, p) => {
-    const res = p.calculationResult;
+    const { calculationResult: res } = getProductForCategory(p, category.id);
     if (!res) return sum;
     const qty = res.quantity || 1;
     const unitProfit = res.actualProfitAfterDiscount ?? ((res.finalSellingPrice || 0) - (res.baseProductionCost || 0));
@@ -84,7 +105,7 @@ export const CategoryDetailPage: React.FC<CategoryDetailPageProps> = ({
   }, 0);
 
   const totalBatchFilamentGrams = categoryProducts.reduce((sum, p) => {
-    const res = p.calculationResult;
+    const { calculationResult: res } = getProductForCategory(p, category.id);
     if (!res) return sum;
     const singleGrams = res.totalSingleUnitGrams || res.filamentResults.reduce((fSum, f) => fSum + (f.usedGrams || 0), 0);
     const qty = res.quantity || 1;
@@ -104,6 +125,35 @@ export const CategoryDetailPage: React.FC<CategoryDetailPageProps> = ({
   const handleExportAdminExcel = () => {
     exportCategoryAdminExcel(category, subcategories, products);
     if (showToast) showToast(`Exported "${category.name}" (Admin Excel)`);
+  };
+
+  const handleSaveCategoryRates = async () => {
+    if (!onUpdateCategoryRates) return;
+    setIsSavingRates(true);
+
+    const filVal = parseFloat(filamentInputStr) || 1399;
+    const elecVal = parseFloat(electricityInputStr) || 15;
+    const profitVal = parseFloat(profitInputStr) || 25;
+    const bulkQtyVal = bulkQtyInputStr.trim() !== '' ? parseFloat(bulkQtyInputStr) || undefined : undefined;
+
+    const newRates: CategoryRates = {
+      filamentCostPerKg: filVal,
+      electricityRatePerKwh: elecVal,
+      profitPercent: profitVal,
+      profitMode: profitMode,
+      bulkQuantity: bulkQtyVal,
+    };
+
+    try {
+      await onUpdateCategoryRates(category.id, newRates, true);
+      if (showToast) {
+        showToast(
+          `Updated rates for "${category.name}" & recalculated ${categoryProducts.length} product(s)!`
+        );
+      }
+    } finally {
+      setIsSavingRates(false);
+    }
   };
 
   return (
@@ -278,6 +328,135 @@ export const CategoryDetailPage: React.FC<CategoryDetailPageProps> = ({
         </div>
       </div>
 
+      {/* Category Base Rates & Pricing Defaults Panel */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <Sliders className="w-5 h-5 text-[#22c55e]" />
+              <h3 className="text-base font-bold text-slate-900 font-heading">
+                Pricing Base Rates for "{category.name}"
+              </h3>
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                Category-Specific
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Rates set here are separate for "{category.name}" and will not affect other categories. Easily edit filament cost, electricity rate, margin, and MOQ.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-4 items-end">
+          {/* Filament Price for this Category */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Filament Price (₹/kg)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                ₹
+              </span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={filamentInputStr}
+                onChange={(e) => setFilamentInputStr(e.target.value)}
+                placeholder="e.g. 1399"
+                className="w-full pl-7 pr-3 py-2 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          {/* Electricity Rate for this Category */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Electricity Rate (₹/kWh)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                ₹
+              </span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={electricityInputStr}
+                onChange={(e) => setElectricityInputStr(e.target.value)}
+                placeholder="e.g. 15"
+                className="w-full pl-7 pr-3 py-2 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          {/* Profit Target % for this Category */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-slate-700">
+                Profit Target (%)
+              </label>
+              <button
+                type="button"
+                onClick={() => setProfitMode((prev: ProfitMode) => (prev === 'margin' ? 'markup' : 'margin'))}
+                className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
+                title="Toggle Profit Margin % vs Markup %"
+              >
+                {profitMode === 'margin' ? 'Margin %' : 'Markup %'}
+              </button>
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={profitInputStr}
+                onChange={(e) => setProfitInputStr(e.target.value)}
+                placeholder="e.g. 25"
+                className="w-full pl-3 pr-8 py-2 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                %
+              </span>
+            </div>
+          </div>
+
+          {/* Bulk Quantity MOQ for this Category */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Category Bulk MOQ
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={bulkQtyInputStr}
+                onChange={(e) => setBulkQtyInputStr(e.target.value)}
+                placeholder="e.g. 100 (optional)"
+                className="w-full pl-3 pr-11 py-2 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
+                Units
+              </span>
+            </div>
+          </div>
+
+          {/* Save & Apply to Category Products */}
+          <button
+            onClick={handleSaveCategoryRates}
+            disabled={isSavingRates}
+            type="button"
+            className="w-full py-2.5 px-4 font-bold text-xs text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-md shadow-slate-900/20 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {isSavingRates ? (
+              <span className="text-xs">Saving...</span>
+            ) : (
+              <>
+                <Save className="w-4 h-4 text-[#22c55e]" />
+                <span>Save & Apply to {category.name}</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* Subcategories List */}
       <div className="space-y-5">
         <div className="flex items-center justify-between gap-3">
@@ -305,6 +484,7 @@ export const CategoryDetailPage: React.FC<CategoryDetailPageProps> = ({
                   key={subcat.id}
                   subcategory={subcat}
                   products={subProducts}
+                  categoryId={category.id}
                   onEditSubcategoryClick={onEditSubcategoryClick}
                   onAddProductClick={onAddProductClick}
                   onEditProduct={onEditProduct}

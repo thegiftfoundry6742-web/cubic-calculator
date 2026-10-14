@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Category, Subcategory, CatalogProduct, GlobalSettings } from '../types/calculator';
+import type { Category, Subcategory, CatalogProduct, GlobalSettings, CategoryRates } from '../types/calculator';
+import { isProductInCategory } from '../types/calculator';
 import { getSupabaseClient } from '../lib/supabase';
 import { calculate3DPrintCost } from '../engine/calculationEngine';
 
@@ -112,6 +113,7 @@ export function useCatalog() {
               id: c.id,
               name: c.name,
               description: c.description || '',
+              rates: c.rates || undefined,
               createdAt: new Date(c.created_at).getTime(),
             }))
           );
@@ -154,7 +156,12 @@ export function useCatalog() {
       const res = await fetch(`${API_BASE}/catalog`);
       if (res.ok) {
         const data = await res.json();
-        setCategories(data.categories || []);
+        setCategories(
+          (data.categories || []).map((c: any) => ({
+            ...c,
+            rates: c.rates || undefined,
+          }))
+        );
         setSubcategories(data.subcategories || []);
         setProducts(
           (data.products || []).map((p: any) => ({
@@ -199,11 +206,12 @@ export function useCatalog() {
 
   // CATEGORY OPERATIONS
   const addCategory = useCallback(
-    async (name: string, description: string) => {
+    async (name: string, description: string, rates?: CategoryRates) => {
       const newCat: Category = {
         id: `cat-${Date.now()}`,
         name: name.trim(),
         description: description.trim(),
+        rates,
         createdAt: Date.now(),
       };
 
@@ -216,6 +224,7 @@ export function useCatalog() {
             id: newCat.id,
             name: newCat.name,
             description: newCat.description,
+            rates: newCat.rates,
           });
         }
         await fetch(`${API_BASE}/categories`, {
@@ -233,32 +242,182 @@ export function useCatalog() {
   );
 
   const updateCategory = useCallback(
-    async (id: string, name: string, description: string) => {
+    async (id: string, name: string, description: string, rates?: CategoryRates) => {
       const updatedName = name.trim();
       const updatedDesc = description.trim();
 
       setCategories((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, name: updatedName, description: updatedDesc } : c))
+        prev.map((c) =>
+          c.id === id ? { ...c, name: updatedName, description: updatedDesc, ...(rates ? { rates } : {}) } : c
+        )
       );
 
       try {
+        const target = categories.find((c) => c.id === id);
+        const finalRates = rates || target?.rates;
         const supabase = getSupabaseClient();
         if (supabase) {
           await supabase
             .from('categories')
-            .update({ name: updatedName, description: updatedDesc })
+            .update({ name: updatedName, description: updatedDesc, rates: finalRates })
             .eq('id', id);
         }
         await fetch(`${API_BASE}/categories`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, name: updatedName, description: updatedDesc }),
+          body: JSON.stringify({ id, name: updatedName, description: updatedDesc, rates: finalRates }),
         });
       } catch (err) {
         console.error('Failed to update category in Supabase:', err);
       }
     },
-    []
+    [categories]
+  );
+
+  const updateCategoryRates = useCallback(
+    async (categoryId: string, rates: CategoryRates, applyToExistingProducts: boolean = true) => {
+      setCategories((prev) =>
+        prev.map((c) => (c.id === categoryId ? { ...c, rates } : c))
+      );
+
+      try {
+        const targetCat = categories.find((c) => c.id === categoryId);
+        if (targetCat) {
+          const updatedCat = { ...targetCat, rates };
+          const supabase = getSupabaseClient();
+          if (supabase) {
+            await supabase.from('categories').upsert({
+              id: updatedCat.id,
+              name: updatedCat.name,
+              description: updatedCat.description,
+              rates: updatedCat.rates,
+            });
+          }
+          await fetch(`${API_BASE}/categories`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedCat),
+          });
+        }
+      } catch (err) {
+        console.error('Failed to sync category rates:', err);
+      }
+
+      if (applyToExistingProducts) {
+        setProducts((prev) => {
+          return prev.map((p) => {
+            const belongsToCat = isProductInCategory(p, categoryId);
+            if (!belongsToCat) return p;
+
+            let updatedSt = { ...p.calculatorState };
+            let updatedAssignments = p.categoryAssignments ? [...p.categoryAssignments] : [];
+
+            const isPrimary = p.categoryId === categoryId;
+            if (isPrimary) {
+              const updatedFils = (updatedSt.filaments || []).map((f) => ({
+                ...f,
+                costPerKg: typeof rates.filamentCostPerKg === 'number' && rates.filamentCostPerKg > 0
+                  ? rates.filamentCostPerKg
+                  : f.costPerKg,
+              }));
+
+              const updatedElec = {
+                ...(updatedSt.electricity || {}),
+                ratePerKwh: typeof rates.electricityRatePerKwh === 'number' && rates.electricityRatePerKwh > 0
+                  ? rates.electricityRatePerKwh
+                  : updatedSt.electricity?.ratePerKwh || 15,
+              };
+
+              const updatedProfit = {
+                ...(updatedSt.profit || {}),
+                mode: rates.profitMode || updatedSt.profit?.mode || 'margin',
+                value: typeof rates.profitPercent === 'number'
+                  ? rates.profitPercent
+                  : updatedSt.profit?.value || 25,
+              };
+
+              const updatedQty = typeof rates.bulkQuantity === 'number' && rates.bulkQuantity > 0
+                ? rates.bulkQuantity
+                : updatedSt.quantity || 1;
+
+              updatedSt = {
+                ...updatedSt,
+                filaments: updatedFils,
+                electricity: updatedElec as any,
+                profit: updatedProfit as any,
+                quantity: updatedQty,
+              };
+            }
+
+            if (updatedAssignments.length > 0) {
+              updatedAssignments = updatedAssignments.map((a) => {
+                if (a.categoryId !== categoryId) return a;
+                const newAssignQty = typeof rates.bulkQuantity === 'number' && rates.bulkQuantity > 0 ? rates.bulkQuantity : (a.quantity ?? updatedSt.quantity);
+                const newAssignProfit = typeof rates.profitPercent === 'number' ? rates.profitPercent : (a.profitPercent ?? updatedSt.profit.value);
+                const newAssignMode = rates.profitMode || a.profitMode || updatedSt.profit.mode;
+                const newAssignFil = typeof rates.filamentCostPerKg === 'number' && rates.filamentCostPerKg > 0 ? rates.filamentCostPerKg : (a.filamentCostPerKg ?? updatedSt.filaments[0]?.costPerKg);
+                const newAssignElec = typeof rates.electricityRatePerKwh === 'number' && rates.electricityRatePerKwh > 0 ? rates.electricityRatePerKwh : (a.electricityRatePerKwh ?? updatedSt.electricity.ratePerKwh);
+
+                const assignState = {
+                  ...updatedSt,
+                  quantity: newAssignQty,
+                  profit: { mode: newAssignMode, value: newAssignProfit },
+                  filaments: updatedSt.filaments.map((f) => ({ ...f, costPerKg: newAssignFil })),
+                  electricity: { ...updatedSt.electricity, ratePerKwh: newAssignElec },
+                };
+                const assignRes = calculate3DPrintCost(assignState);
+
+                return {
+                  ...a,
+                  quantity: newAssignQty,
+                  profitPercent: newAssignProfit,
+                  profitMode: newAssignMode,
+                  filamentCostPerKg: newAssignFil,
+                  electricityRatePerKwh: newAssignElec,
+                  calculationResult: assignRes,
+                };
+              });
+            }
+
+            const updatedRes = calculate3DPrintCost(updatedSt as any);
+
+            const updatedProd: CatalogProduct = {
+              ...p,
+              calculatorState: {
+                ...updatedSt,
+                categoryAssignments: updatedAssignments,
+              },
+              categoryAssignments: updatedAssignments,
+              calculationResult: updatedRes,
+              updatedAt: Date.now(),
+            };
+
+            try {
+              const supabase = getSupabaseClient();
+              if (supabase) {
+                supabase.from('products').upsert({
+                  id: updatedProd.id,
+                  category_id: updatedProd.categoryId,
+                  subcategory_id: updatedProd.subcategoryId,
+                  name: updatedProd.name,
+                  dimensions: updatedProd.dimensions,
+                  calculator_state: updatedProd.calculatorState,
+                  calculation_result: updatedProd.calculationResult,
+                });
+              }
+              fetch(`${API_BASE}/products`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedProd),
+              });
+            } catch {}
+
+            return updatedProd;
+          });
+        });
+      }
+    },
+    [categories]
   );
 
   const deleteCategory = useCallback(async (id: string) => {
@@ -380,19 +539,47 @@ export function useCatalog() {
         categoryAssignments: assignments,
       };
 
+      const computedAssignments = assignments.map((a) => {
+        const stateForA = {
+          ...calculatorStateWithAssignments,
+          quantity: typeof a.quantity === 'number' && a.quantity > 0 ? a.quantity : calculatorStateWithAssignments.quantity,
+          profit: {
+            mode: a.profitMode || calculatorStateWithAssignments.profit.mode,
+            value: typeof a.profitPercent === 'number' ? a.profitPercent : calculatorStateWithAssignments.profit.value,
+          },
+          filaments: typeof a.filamentCostPerKg === 'number' && a.filamentCostPerKg > 0
+            ? calculatorStateWithAssignments.filaments.map((f) => ({ ...f, costPerKg: a.filamentCostPerKg! }))
+            : calculatorStateWithAssignments.filaments,
+          electricity: typeof a.electricityRatePerKwh === 'number' && a.electricityRatePerKwh > 0
+            ? { ...calculatorStateWithAssignments.electricity, ratePerKwh: a.electricityRatePerKwh! }
+            : calculatorStateWithAssignments.electricity,
+        };
+        const calcRes = calculate3DPrintCost(stateForA);
+        return {
+          ...a,
+          calculationResult: calcRes,
+        };
+      });
+
       if (productData.id) {
         savedProd = {
           ...productData,
-          categoryAssignments: assignments,
-          calculatorState: calculatorStateWithAssignments,
+          categoryAssignments: computedAssignments,
+          calculatorState: {
+            ...calculatorStateWithAssignments,
+            categoryAssignments: computedAssignments,
+          },
           id: productData.id,
           updatedAt: now,
         } as CatalogProduct;
       } else {
         savedProd = {
           ...productData,
-          categoryAssignments: assignments,
-          calculatorState: calculatorStateWithAssignments,
+          categoryAssignments: computedAssignments,
+          calculatorState: {
+            ...calculatorStateWithAssignments,
+            categoryAssignments: computedAssignments,
+          },
           id: `prod-${now}-${Math.random().toString(36).substring(2, 6)}`,
           createdAt: now,
           updatedAt: now,
@@ -539,6 +726,7 @@ export function useCatalog() {
     products,
     addCategory,
     updateCategory,
+    updateCategoryRates,
     addSubcategory,
     updateSubcategory,
     saveCatalogProduct,

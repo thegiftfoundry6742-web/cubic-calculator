@@ -1,16 +1,21 @@
 import React from 'react';
 import type { CatalogProduct, DimensionItem } from '../../types/calculator';
+import { getProductForCategory } from '../../types/calculator';
 import { formatINR, formatPercent } from '../../utils/formatters';
-import { Edit3, Trash2, Box } from 'lucide-react';
+import { Edit3, Trash2, Box, Sparkles } from 'lucide-react';
 
 interface ProductCardProps {
   product: CatalogProduct;
+  categoryId?: string;
   onEdit: (product: CatalogProduct) => void;
   onDelete: (id: string) => void;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDelete }) => {
-  const res = product.calculationResult;
+export const ProductCard: React.FC<ProductCardProps> = ({ product, categoryId, onEdit, onDelete }) => {
+  const catData = getProductForCategory(product, categoryId);
+  const res = catData.calculationResult;
+  const qty = catData.quantity;
+  const assignment = catData.assignment;
 
   const dims: DimensionItem[] = Array.isArray(product.dimensions) && product.dimensions.length > 0
     ? product.dimensions
@@ -28,12 +33,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
   const hasDim = dims.some((d) => d.lengthMm > 0 || d.widthMm > 0 || d.heightMm > 0 || d.diameterMm > 0);
 
   const singleGrams = res.totalSingleUnitGrams || res.filamentResults.reduce((sum, f) => sum + (f.usedGrams || 0), 0);
-  const qty = res.quantity || 1;
   const batchGrams = res.totalBatchFilamentGrams || singleGrams * qty;
   const batchKg = batchGrams / 1000;
   const batchWeightStr = batchKg >= 1
     ? `${Number.isInteger(batchKg) ? batchKg : batchKg.toFixed(2)} kg`
     : `${batchGrams.toLocaleString('en-IN')} g`;
+
+  const hasCategoryOverride =
+    assignment &&
+    (assignment.quantity !== undefined ||
+      assignment.filamentCostPerKg !== undefined ||
+      assignment.profitPercent !== undefined ||
+      assignment.profitMode !== undefined);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 hover:border-emerald-300 shadow-2xs hover:shadow-md transition-all p-4 flex flex-col justify-between gap-3">
@@ -84,14 +95,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
           <div className="mt-1 text-[11px] text-slate-400 italic">No dimensions specified</div>
         )}
 
-        {/* Multi-Category Badge if assigned to 2+ categories */}
-        {product.categoryAssignments && product.categoryAssignments.length > 1 && (
-          <div className="mt-2 flex items-center gap-1">
+        {/* Multi-Category Badge & Category Override Pill */}
+        <div className="mt-2 flex flex-wrap items-center gap-1">
+          {product.categoryAssignments && product.categoryAssignments.length > 1 && (
             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
               📁 In {product.categoryAssignments.length} Categories
             </span>
-          </div>
-        )}
+          )}
+
+          {hasCategoryOverride && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200" title={`Category specific pricing: ${catData.profitPercent}% margin, ₹${catData.filamentCostPerKg}/kg`}>
+              <Sparkles className="w-2.5 h-2.5 text-emerald-600" />
+              Category Rates: {catData.profitPercent}%
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Pricing & Filament Summary Stats */}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { Category, Subcategory, CatalogProduct, GlobalSettings, ProfitMode } from '../../types/calculator';
+import type { Category, Subcategory, CatalogProduct, GlobalSettings, ProfitMode, CategoryRates } from '../../types/calculator';
 import { CategoryCard } from './CategoryCard';
 import { CategoryDetailPage } from './CategoryDetailPage';
 import { CreateCategoryModal, CreateSubcategoryModal } from './ModalForms';
@@ -13,6 +13,7 @@ interface DashboardHomeProps {
   products: CatalogProduct[];
   globalSettings: GlobalSettings;
   onUpdateGlobalSettings: (settings: GlobalSettings, applyToExisting: boolean) => void;
+  onUpdateCategoryRates?: (categoryId: string, rates: CategoryRates, applyToExisting: boolean) => Promise<void>;
   onAddCategory: (name: string, description: string) => void;
   onUpdateCategory: (id: string, name: string, description: string) => void;
   onAddSubcategory: (categoryId: string, name: string, description: string) => void;
@@ -32,6 +33,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   products,
   globalSettings,
   onUpdateGlobalSettings,
+  onUpdateCategoryRates,
   onAddCategory,
   onUpdateCategory,
   onAddSubcategory,
@@ -51,6 +53,8 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   const [selectedCategoryIdForSub, setSelectedCategoryIdForSub] = useState<string | null>(null);
   const [editingSubcategory, setEditingSubcategory] = useState<Subcategory | null>(null);
 
+  const [ratesScope, setRatesScope] = useState<string>('global');
+
   const [filamentInputStr, setFilamentInputStr] = useState<string>(
     globalSettings.defaultFilamentCostPerKg ? globalSettings.defaultFilamentCostPerKg.toString() : ''
   );
@@ -67,21 +71,107 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
     globalSettings.defaultBulkQuantity ? globalSettings.defaultBulkQuantity.toString() : ''
   );
 
+  const selectedRatesCategory = categories.find((c) => c.id === ratesScope);
+
+  const handleSwitchRatesScope = (newScope: string) => {
+    setRatesScope(newScope);
+    if (newScope === 'global') {
+      setFilamentInputStr(
+        globalSettings.defaultFilamentCostPerKg ? globalSettings.defaultFilamentCostPerKg.toString() : '1399'
+      );
+      setElectricityInputStr(
+        globalSettings.defaultElectricityRatePerKwh ? globalSettings.defaultElectricityRatePerKwh.toString() : '15'
+      );
+      setProfitInputStr(
+        globalSettings.defaultProfitPercent ? globalSettings.defaultProfitPercent.toString() : '25'
+      );
+      setProfitMode(globalSettings.defaultProfitMode || 'margin');
+      setBulkQtyInputStr(
+        globalSettings.defaultBulkQuantity ? globalSettings.defaultBulkQuantity.toString() : ''
+      );
+    } else {
+      const cat = categories.find((c) => c.id === newScope);
+      const r = cat?.rates;
+      setFilamentInputStr(
+        r?.filamentCostPerKg !== undefined
+          ? r.filamentCostPerKg.toString()
+          : (globalSettings.defaultFilamentCostPerKg ? globalSettings.defaultFilamentCostPerKg.toString() : '1399')
+      );
+      setElectricityInputStr(
+        r?.electricityRatePerKwh !== undefined
+          ? r.electricityRatePerKwh.toString()
+          : (globalSettings.defaultElectricityRatePerKwh ? globalSettings.defaultElectricityRatePerKwh.toString() : '15')
+      );
+      setProfitInputStr(
+        r?.profitPercent !== undefined
+          ? r.profitPercent.toString()
+          : (globalSettings.defaultProfitPercent ? globalSettings.defaultProfitPercent.toString() : '25')
+      );
+      setProfitMode(r?.profitMode || globalSettings.defaultProfitMode || 'margin');
+      setBulkQtyInputStr(
+        r?.bulkQuantity !== undefined && r.bulkQuantity > 0
+          ? r.bulkQuantity.toString()
+          : (globalSettings.defaultBulkQuantity ? globalSettings.defaultBulkQuantity.toString() : '')
+      );
+    }
+  };
+
+  const handleSaveRates = async () => {
+    const filVal = parseFloat(filamentInputStr) || 1399;
+    const elecVal = parseFloat(electricityInputStr) || 15;
+    const profitVal = parseFloat(profitInputStr) || 25;
+    const bulkQtyVal = bulkQtyInputStr.trim() !== '' ? parseFloat(bulkQtyInputStr) || undefined : undefined;
+
+    if (ratesScope === 'global') {
+      onUpdateGlobalSettings(
+        {
+          defaultFilamentCostPerKg: filVal,
+          defaultElectricityRatePerKwh: elecVal,
+          defaultProfitPercent: profitVal,
+          defaultProfitMode: profitMode,
+          defaultBulkQuantity: bulkQtyVal,
+        },
+        true
+      );
+      if (showToast) {
+        showToast(
+          `Applied Global Base Rates${bulkQtyVal ? ` & Bulk MOQ (${bulkQtyVal} units)` : ''} to all products!`
+        );
+      }
+    } else if (onUpdateCategoryRates) {
+      const cat = categories.find((c) => c.id === ratesScope);
+      const newRates: CategoryRates = {
+        filamentCostPerKg: filVal,
+        electricityRatePerKwh: elecVal,
+        profitPercent: profitVal,
+        profitMode: profitMode,
+        bulkQuantity: bulkQtyVal,
+      };
+      await onUpdateCategoryRates(ratesScope, newRates, true);
+      if (showToast) {
+        showToast(`Saved rates for "${cat?.name || 'Category'}" and updated its products!`);
+      }
+    }
+  };
+
   useEffect(() => {
-    setFilamentInputStr(
-      globalSettings.defaultFilamentCostPerKg ? globalSettings.defaultFilamentCostPerKg.toString() : ''
-    );
-    setElectricityInputStr(
-      globalSettings.defaultElectricityRatePerKwh ? globalSettings.defaultElectricityRatePerKwh.toString() : ''
-    );
-    setProfitInputStr(
-      globalSettings.defaultProfitPercent ? globalSettings.defaultProfitPercent.toString() : '25'
-    );
-    setProfitMode(globalSettings.defaultProfitMode || 'margin');
-    setBulkQtyInputStr(
-      globalSettings.defaultBulkQuantity ? globalSettings.defaultBulkQuantity.toString() : ''
-    );
+    if (ratesScope === 'global') {
+      setFilamentInputStr(
+        globalSettings.defaultFilamentCostPerKg ? globalSettings.defaultFilamentCostPerKg.toString() : ''
+      );
+      setElectricityInputStr(
+        globalSettings.defaultElectricityRatePerKwh ? globalSettings.defaultElectricityRatePerKwh.toString() : ''
+      );
+      setProfitInputStr(
+        globalSettings.defaultProfitPercent ? globalSettings.defaultProfitPercent.toString() : '25'
+      );
+      setProfitMode(globalSettings.defaultProfitMode || 'margin');
+      setBulkQtyInputStr(
+        globalSettings.defaultBulkQuantity ? globalSettings.defaultBulkQuantity.toString() : ''
+      );
+    }
   }, [
+    ratesScope,
     globalSettings.defaultFilamentCostPerKg,
     globalSettings.defaultElectricityRatePerKwh,
     globalSettings.defaultProfitPercent,
@@ -147,6 +237,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             setActiveCategoryId(null);
           }}
           onDeleteSubcategory={onDeleteSubcategory}
+          onUpdateCategoryRates={onUpdateCategoryRates}
           showToast={showToast}
         />
 
@@ -356,22 +447,41 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
       </div>
 
-      {/* Global Base Rates & Pricing Defaults Panel */}
+      {/* Base Rates & Pricing Defaults Panel with Category Scope Switcher */}
       <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
           <div>
             <div className="flex items-center gap-2">
               <Sliders className="w-5 h-5 text-[#22c55e]" />
               <h3 className="text-base font-bold text-slate-900 font-heading">
-                Global Pricing Base Rates
+                {ratesScope === 'global' ? 'Global Pricing Base Rates' : `Pricing Base Rates for "${selectedRatesCategory?.name}"`}
               </h3>
               <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                Catalog Defaults
+                {ratesScope === 'global' ? 'Catalog Defaults' : 'Category-Specific'}
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Set default filament price and electricity rate applied to all products across your 3D print catalog. Free text entry allowing easy editing.
+              {ratesScope === 'global'
+                ? 'Set default filament price and electricity rate applied to new products. Switch to a specific category below to customize rates separately.'
+                : `Rates configured here are separate for "${selectedRatesCategory?.name}" and will not affect other categories.`}
             </p>
+          </div>
+
+          {/* Category Scope Selector */}
+          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+            <span className="text-xs font-semibold text-slate-500">Configure Rates For:</span>
+            <select
+              value={ratesScope}
+              onChange={(e) => handleSwitchRatesScope(e.target.value)}
+              className="text-xs font-bold text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer shadow-2xs"
+            >
+              <option value="global">🌐 Global Defaults (All Categories)</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  📁 {c.name} {c.rates ? '✓ (Separate Rates)' : ''}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -379,7 +489,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           {/* Filament Default Price (Free text) */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Default Filament Price (₹/kg)
+              {ratesScope === 'global' ? 'Default Filament Price' : `${selectedRatesCategory?.name} Filament`} (₹/kg)
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
@@ -399,7 +509,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           {/* Electricity Default Rate (Free text) */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Default Electricity Rate (₹/kWh)
+              Electricity Rate (₹/kWh)
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
@@ -420,7 +530,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-xs font-semibold text-slate-700">
-                Default Profit Target (%)
+                Profit Target (%)
               </label>
               <button
                 type="button"
@@ -449,7 +559,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           {/* Bulk Quantity MOQ (Free text) */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Default Bulk Quantity (MOQ)
+              Bulk Quantity (MOQ)
             </label>
             <div className="relative">
               <input
@@ -466,33 +576,16 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             </div>
           </div>
 
-          {/* Save & Apply to All Products Button */}
+          {/* Save & Apply Button */}
           <button
-            onClick={() => {
-              const filVal = parseFloat(filamentInputStr) || 0;
-              const elecVal = parseFloat(electricityInputStr) || 0;
-              const profitVal = parseFloat(profitInputStr) || 0;
-              const bulkQtyVal = bulkQtyInputStr.trim() !== '' ? parseFloat(bulkQtyInputStr) || undefined : undefined;
-              onUpdateGlobalSettings(
-                {
-                  defaultFilamentCostPerKg: filVal,
-                  defaultElectricityRatePerKwh: elecVal,
-                  defaultProfitPercent: profitVal,
-                  defaultProfitMode: profitMode,
-                  defaultBulkQuantity: bulkQtyVal,
-                },
-                true
-              );
-              if (showToast)
-                showToast(
-                  `Applied Base Rates${bulkQtyVal ? ` & Bulk MOQ (${bulkQtyVal} units)` : ''} to all products!`
-                );
-            }}
+            onClick={handleSaveRates}
             type="button"
             className="w-full py-2.5 px-4 font-bold text-xs text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-md shadow-slate-900/20 transition-all cursor-pointer flex items-center justify-center gap-2"
           >
             <Save className="w-4 h-4 text-[#22c55e]" />
-            <span>Save & Apply to All Products</span>
+            <span>
+              {ratesScope === 'global' ? 'Save & Apply to All Products' : `Save & Apply to ${selectedRatesCategory?.name}`}
+            </span>
           </button>
         </div>
       </div>

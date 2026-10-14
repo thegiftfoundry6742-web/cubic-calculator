@@ -6,6 +6,7 @@ import { Layers, Plus, Trash2, Pencil } from 'lucide-react';
 interface SubcategoryRowProps {
   subcategory: Subcategory;
   products: CatalogProduct[];
+  categoryId?: string;
   onEditSubcategoryClick: (subcategory: Subcategory) => void;
   onAddProductClick: (subcategoryId: string) => void;
   onEditProduct: (product: CatalogProduct) => void;
@@ -16,6 +17,7 @@ interface SubcategoryRowProps {
 export const SubcategoryRow: React.FC<SubcategoryRowProps> = ({
   subcategory,
   products,
+  categoryId,
   onEditSubcategoryClick,
   onAddProductClick,
   onEditProduct,
@@ -76,6 +78,7 @@ export const SubcategoryRow: React.FC<SubcategoryRowProps> = ({
             <ProductCard
               key={prod.id}
               product={prod}
+              categoryId={categoryId || subcategory.categoryId}
               onEdit={onEditProduct}
               onDelete={onDeleteProduct}
             />
