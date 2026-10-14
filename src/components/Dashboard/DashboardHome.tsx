@@ -19,7 +19,7 @@ interface DashboardHomeProps {
   onAddSubcategory: (categoryId: string, name: string, description: string) => void;
   onUpdateSubcategory: (id: string, name: string, description: string) => void;
   onAddProductForSubcategory: (subcategoryId: string) => void;
-  onEditProduct: (product: CatalogProduct) => void;
+  onEditProduct: (product: CatalogProduct, categoryId?: string) => void;
   onDeleteProduct: (productId: string) => void;
   onDeleteCategory: (categoryId: string) => void;
   onDeleteSubcategory: (subcategoryId: string) => void;

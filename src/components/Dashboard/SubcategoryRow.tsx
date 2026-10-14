@@ -9,7 +9,7 @@ interface SubcategoryRowProps {
   categoryId?: string;
   onEditSubcategoryClick: (subcategory: Subcategory) => void;
   onAddProductClick: (subcategoryId: string) => void;
-  onEditProduct: (product: CatalogProduct) => void;
+  onEditProduct: (product: CatalogProduct, categoryId?: string) => void;
   onDeleteProduct: (productId: string) => void;
   onDeleteSubcategory: (subcategoryId: string) => void;
 }

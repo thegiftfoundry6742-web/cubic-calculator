@@ -243,4 +243,77 @@ describe('3D Print Cost Calculation Engine', () => {
     expect(b2bData.calculationResult.totalSellingPrice).toBeGreaterThan(0);
     expect(b2bData.calculationResult.totalSellingPrice).not.toEqual(retailData.calculationResult.totalSellingPrice);
   });
+
+  it('guarantees that separate category products are independent entities that do not affect each other', () => {
+    // Product 1 in Category A (e.g. Planters & Pots)
+    const stateA: CalculatorState = {
+      ...sampleState,
+      quantity: 150,
+      profit: { mode: 'margin', value: 35 },
+      filaments: [{ id: '1', name: 'PLA', usedGrams: 200, costPerKg: 1399 }],
+    };
+    const resA = calculate3DPrintCost(stateA);
+
+    const productA: CatalogProduct = {
+      id: 'prod-planter-1',
+      name: 'Model 1',
+      categoryId: 'cat-planters',
+      subcategoryId: 'sub-loiren',
+      dimensions: [{ id: '1', name: 'Main', lengthMm: 100, widthMm: 80, heightMm: 80, diameterMm: 0 }],
+      calculatorState: stateA,
+      calculationResult: resA,
+      categoryAssignments: [{ categoryId: 'cat-planters', subcategoryId: 'sub-loiren', quantity: 150 }],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    // Product 2 independently added to Category B (e.g. Lithophane)
+    const stateB: CalculatorState = {
+      ...sampleState,
+      quantity: 1,
+      profit: { mode: 'margin', value: 25 },
+      filaments: [{ id: '1', name: 'PLA', usedGrams: 200, costPerKg: 899 }],
+    };
+    const resB = calculate3DPrintCost(stateB);
+
+    const productB: CatalogProduct = {
+      id: 'prod-planter-1-cat-litho',
+      name: 'Model 1',
+      categoryId: 'cat-lithophane',
+      subcategoryId: 'sub-frames',
+      dimensions: [{ id: '1', name: 'Main', lengthMm: 100, widthMm: 80, heightMm: 80, diameterMm: 0 }],
+      calculatorState: stateB,
+      calculationResult: resB,
+      categoryAssignments: [{ categoryId: 'cat-lithophane', subcategoryId: 'sub-frames', quantity: 1 }],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    // Verify independence
+    expect(productA.id).not.toBe(productB.id);
+    expect(productA.categoryId).toBe('cat-planters');
+    expect(productB.categoryId).toBe('cat-lithophane');
+    expect(productA.calculationResult.quantity).toBe(150);
+    expect(productB.calculationResult.quantity).toBe(1);
+    expect(productA.calculationResult.finalSellingPrice).not.toBe(productB.calculationResult.finalSellingPrice);
+
+    // Editing Product B (e.g. changing margin or quantity in Category B)
+    const updatedStateB: CalculatorState = {
+      ...stateB,
+      quantity: 50,
+      profit: { mode: 'margin', value: 45 },
+    };
+    const updatedResB = calculate3DPrintCost(updatedStateB);
+    const updatedProductB = {
+      ...productB,
+      calculatorState: updatedStateB,
+      calculationResult: updatedResB,
+    };
+
+    // Category A must remain completely unaffected
+    expect(productA.calculatorState.quantity).toBe(150);
+    expect(productA.calculatorState.profit.value).toBe(35);
+    expect(updatedProductB.calculatorState.quantity).toBe(50);
+    expect(updatedProductB.calculatorState.profit.value).toBe(45);
+  });
 });

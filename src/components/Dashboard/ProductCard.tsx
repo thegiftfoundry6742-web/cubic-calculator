@@ -7,7 +7,7 @@ import { Edit3, Trash2, Box, Sparkles } from 'lucide-react';
 interface ProductCardProps {
   product: CatalogProduct;
   categoryId?: string;
-  onEdit: (product: CatalogProduct) => void;
+  onEdit: (product: CatalogProduct, categoryId?: string) => void;
   onDelete: (id: string) => void;
 }
 
@@ -56,7 +56,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, categoryId, o
           </h4>
           <div className="flex items-center gap-1 shrink-0">
             <button
-              onClick={() => onEdit(product)}
+              onClick={() => onEdit(product, categoryId)}
               type="button"
               className="p-1 text-slate-400 hover:text-[#16a34a] hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
               title="Edit Product in Calculator"

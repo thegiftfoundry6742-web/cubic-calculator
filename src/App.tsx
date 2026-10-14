@@ -18,7 +18,8 @@ import { PresetModal } from './components/PresetModal';
 import { PrintableQuote } from './components/PrintableQuote';
 import { Toast } from './components/Toast';
 import { DashboardHome } from './components/Dashboard/DashboardHome';
-import type { CatalogProduct } from './types/calculator';
+import type { CatalogProduct, CalculatorState } from './types/calculator';
+import { calculate3DPrintCost } from './engine/calculationEngine';
 
 export function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'calculator'>('dashboard');
@@ -76,7 +77,7 @@ export function App() {
     }, 3500);
   };
 
-  // Save product to catalog database
+  // Save product to catalog database (saves independent products for each assigned category)
   const handleSaveProductToCatalog = async () => {
     let assignments = state.categoryAssignments && state.categoryAssignments.length > 0
       ? state.categoryAssignments.filter((a) => a.categoryId)
@@ -121,33 +122,108 @@ export function App() {
 
     if (!targetCatId || !targetSubId) return;
 
-    const savedProduct = await saveCatalogProduct({
-      id: state.productId,
-      categoryId: targetCatId,
-      subcategoryId: targetSubId,
-      categoryAssignments: assignments,
-      name: state.productName || 'Custom 3D Printed Product',
-      dimensions: state.dimensions,
-      calculatorState: {
+    // Save independent products for each category assignment:
+    // Assignment 0: If editing an existing product whose category matches assignments[0].categoryId, update that product's ID.
+    // Subsequent assignments (or if category changed): create separate independent products so editing one never affects the other!
+    const savedProducts: CatalogProduct[] = [];
+
+    for (let i = 0; i < assignments.length; i++) {
+      const a = assignments[i];
+      const catId = a.categoryId;
+      let subId = a.subcategoryId;
+
+      if (!subId) {
+        const matchingSub = subcategories.find((s) => s.categoryId === catId);
+        subId = matchingSub?.id;
+      }
+      if (!catId || !subId) continue;
+
+      const catObj = categories.find((c) => c.id === catId);
+      const catRates = catObj?.rates;
+
+      let prodId: string | undefined;
+      if (i === 0 && state.productId && state.categoryId === catId) {
+        prodId = state.productId;
+      } else {
+        prodId = undefined;
+      }
+
+      const qty = typeof a.quantity === 'number' && a.quantity > 0
+        ? a.quantity
+        : (catRates?.bulkQuantity ?? state.quantity ?? 1);
+
+      const filCost = typeof a.filamentCostPerKg === 'number' && a.filamentCostPerKg > 0
+        ? a.filamentCostPerKg
+        : (catRates?.filamentCostPerKg ?? state.filaments?.[0]?.costPerKg ?? 1399);
+
+      const profPercent = typeof a.profitPercent === 'number'
+        ? a.profitPercent
+        : (catRates?.profitPercent ?? state.profit?.value ?? 25);
+
+      const profMode = a.profitMode || catRates?.profitMode || state.profit?.mode || 'margin';
+
+      const elecRate = typeof a.electricityRatePerKwh === 'number' && a.electricityRatePerKwh > 0
+        ? a.electricityRatePerKwh
+        : (catRates?.electricityRatePerKwh ?? state.electricity?.ratePerKwh ?? 15);
+
+      const independentState: CalculatorState = {
         ...state,
-        categoryId: targetCatId,
-        subcategoryId: targetSubId,
-        categoryAssignments: assignments,
-      },
-      calculationResult: results,
-    });
+        productId: prodId,
+        categoryId: catId,
+        subcategoryId: subId,
+        categoryAssignments: [{
+          categoryId: catId,
+          subcategoryId: subId,
+          quantity: qty,
+          filamentCostPerKg: filCost,
+          profitPercent: profPercent,
+          profitMode: profMode,
+          electricityRatePerKwh: elecRate,
+        }],
+        quantity: qty,
+        profit: {
+          mode: profMode,
+          value: profPercent,
+        },
+        filaments: (state.filaments || []).map((f) => ({ ...f, costPerKg: filCost })),
+        electricity: {
+          ...state.electricity,
+          ratePerKwh: elecRate,
+        },
+      };
+
+      const independentResult = calculate3DPrintCost(independentState);
+
+      const saved = await saveCatalogProduct({
+        id: prodId,
+        categoryId: catId,
+        subcategoryId: subId,
+        categoryAssignments: independentState.categoryAssignments,
+        name: state.productName || 'Custom 3D Printed Product',
+        dimensions: state.dimensions,
+        calculatorState: independentState,
+        calculationResult: independentResult,
+      });
+
+      savedProducts.push(saved);
+    }
 
     const categoryNames = assignments
       .map((a) => categories.find((c) => c.id === a.categoryId)?.name)
       .filter(Boolean)
       .join(', ');
 
-    showToast(`"${savedProduct.name}" saved${categoryNames ? ` to [${categoryNames}]` : ''}!`);
+    if (savedProducts.length > 1) {
+      showToast(`Saved ${savedProducts.length} independent products across [${categoryNames}]! Each can be edited separately.`);
+    } else if (savedProducts.length === 1) {
+      showToast(`"${savedProducts[0].name}" saved to [${categoryNames}]!`);
+    }
+
     setCurrentView('dashboard');
   };
 
-  const handleEditProductFromCatalog = (product: CatalogProduct) => {
-    loadCatalogProduct(product);
+  const handleEditProductFromCatalog = (product: CatalogProduct, currentCategoryId?: string) => {
+    loadCatalogProduct(product, currentCategoryId);
     setCurrentView('calculator');
   };
 

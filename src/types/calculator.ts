@@ -187,17 +187,17 @@ export interface CatalogProduct {
 }
 
 export function isProductInCategory(product: CatalogProduct, categoryId: string): boolean {
-  if (product.categoryId === categoryId) return true;
-  if (product.categoryAssignments?.some((a) => a.categoryId === categoryId)) return true;
-  if (product.calculatorState?.categoryAssignments?.some((a) => a.categoryId === categoryId)) return true;
-  return false;
+  if (product.categoryId) {
+    return product.categoryId === categoryId;
+  }
+  return product.categoryAssignments?.[0]?.categoryId === categoryId;
 }
 
 export function isProductInSubcategory(product: CatalogProduct, subcategoryId: string): boolean {
-  if (product.subcategoryId === subcategoryId) return true;
-  if (product.categoryAssignments?.some((a) => a.subcategoryId === subcategoryId)) return true;
-  if (product.calculatorState?.categoryAssignments?.some((a) => a.subcategoryId === subcategoryId)) return true;
-  return false;
+  if (product.subcategoryId) {
+    return product.subcategoryId === subcategoryId;
+  }
+  return product.categoryAssignments?.[0]?.subcategoryId === subcategoryId;
 }
 
 export function getProductForCategory(

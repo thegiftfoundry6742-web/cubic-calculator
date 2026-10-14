@@ -128,23 +128,62 @@ export function useCatalog() {
             }))
           );
 
-          setProducts(
-            (prodRes.data || []).map((p) => {
-              const assignments = p.calculator_state?.categoryAssignments || (p.category_id ? [{ categoryId: p.category_id, subcategoryId: p.subcategory_id }] : []);
-              return {
+          const rawProducts = prodRes.data || [];
+          const expandedProducts: CatalogProduct[] = [];
+
+          for (const p of rawProducts) {
+            const assignments = p.calculator_state?.categoryAssignments;
+            if (assignments && assignments.length > 1) {
+              for (let i = 0; i < assignments.length; i++) {
+                const a = assignments[i];
+                const catId = a.categoryId || p.category_id;
+                const subId = a.subcategoryId || p.subcategory_id;
+                const prodId = i === 0 ? p.id : `${p.id}-cat-${catId.slice(-6)}`;
+                expandedProducts.push({
+                  id: prodId,
+                  categoryId: catId,
+                  subcategoryId: subId,
+                  categoryAssignments: [a],
+                  name: p.name,
+                  dimensions: p.dimensions,
+                  calculatorState: {
+                    ...p.calculator_state,
+                    productId: prodId,
+                    categoryId: catId,
+                    subcategoryId: subId,
+                    categoryAssignments: [a],
+                    quantity: a.quantity ?? p.calculator_state?.quantity,
+                    profit: {
+                      mode: a.profitMode || p.calculator_state?.profit?.mode || 'margin',
+                      value: a.profitPercent ?? p.calculator_state?.profit?.value ?? 25,
+                    },
+                    filaments: a.filamentCostPerKg
+                      ? (p.calculator_state?.filaments || []).map((f: any) => ({ ...f, costPerKg: a.filamentCostPerKg }))
+                      : p.calculator_state?.filaments,
+                  },
+                  calculationResult: a.calculationResult || p.calculation_result,
+                  createdAt: new Date(p.created_at).getTime(),
+                  updatedAt: new Date(p.updated_at).getTime(),
+                });
+              }
+            } else {
+              const a = assignments && assignments.length === 1 ? assignments : (p.category_id ? [{ categoryId: p.category_id, subcategoryId: p.subcategory_id }] : []);
+              expandedProducts.push({
                 id: p.id,
                 categoryId: p.category_id,
                 subcategoryId: p.subcategory_id,
-                categoryAssignments: assignments,
+                categoryAssignments: a,
                 name: p.name,
                 dimensions: p.dimensions,
                 calculatorState: p.calculator_state,
                 calculationResult: p.calculation_result,
                 createdAt: new Date(p.created_at).getTime(),
                 updatedAt: new Date(p.updated_at).getTime(),
-              };
-            })
-          );
+              });
+            }
+          }
+
+          setProducts(expandedProducts);
 
           setIsSupabaseConnected(true);
           setIsSyncing(false);

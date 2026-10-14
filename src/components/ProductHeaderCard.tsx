@@ -342,7 +342,7 @@ export const ProductHeaderCard: React.FC<ProductHeaderCardProps> = ({
               )}
             </span>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Assign this product to one or more catalog categories. Each category can have its own independent margin, filament cost, and MOQ!
+              Assign this product to one or more catalog categories. Each category gets its own independent product with separate rates, margins, and MOQ!
             </p>
           </div>
 
@@ -350,10 +350,10 @@ export const ProductHeaderCard: React.FC<ProductHeaderCardProps> = ({
             type="button"
             onClick={handleAddAssignment}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition-colors cursor-pointer self-start sm:self-auto shrink-0"
-            title="Assign this product to an additional category and set separate rates"
+            title="Assign this product to an additional category as a separate, independent product"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>+ Add to Another Category</span>
+            <span>+ Add to Another Category (Independent)</span>
           </button>
         </div>
 

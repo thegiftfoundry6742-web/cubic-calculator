@@ -30,7 +30,7 @@ interface CategoryDetailPageProps {
   onEditCategoryClick: (category: Category) => void;
   onEditSubcategoryClick: (subcategory: Subcategory) => void;
   onAddProductClick: (subcategoryId: string) => void;
-  onEditProduct: (product: CatalogProduct) => void;
+  onEditProduct: (product: CatalogProduct, categoryId?: string) => void;
   onDeleteProduct: (productId: string) => void;
   onDeleteCategory: (categoryId: string) => void;
   onDeleteSubcategory: (subcategoryId: string) => void;

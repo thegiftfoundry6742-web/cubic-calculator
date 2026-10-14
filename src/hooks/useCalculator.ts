@@ -252,7 +252,7 @@ export function useCalculator(globalSettings?: GlobalSettings) {
     }));
   }, []);
 
-  const loadCatalogProduct = useCallback((catalogProduct: CatalogProduct) => {
+  const loadCatalogProduct = useCallback((catalogProduct: CatalogProduct, currentCategoryId?: string) => {
     const loadedDims = Array.isArray(catalogProduct.dimensions)
       ? catalogProduct.dimensions
       : [
@@ -266,23 +266,51 @@ export function useCalculator(globalSettings?: GlobalSettings) {
           },
         ];
 
-    const assignments: CategoryAssignment[] =
-      catalogProduct.categoryAssignments && catalogProduct.categoryAssignments.length > 0
-        ? catalogProduct.categoryAssignments
-        : catalogProduct.calculatorState?.categoryAssignments && catalogProduct.calculatorState.categoryAssignments.length > 0
-        ? catalogProduct.calculatorState.categoryAssignments
-        : catalogProduct.categoryId
-        ? [{ categoryId: catalogProduct.categoryId, subcategoryId: catalogProduct.subcategoryId }]
-        : [];
+    const effectiveCatId = currentCategoryId || catalogProduct.categoryId;
+    const matchingAssignment = catalogProduct.categoryAssignments?.find((a) => a.categoryId === effectiveCatId)
+      || catalogProduct.categoryAssignments?.[0];
+
+    const effectiveSubId = matchingAssignment?.subcategoryId || catalogProduct.subcategoryId;
+
+    const assignments: CategoryAssignment[] = [
+      {
+        categoryId: effectiveCatId,
+        subcategoryId: effectiveSubId,
+        quantity: matchingAssignment?.quantity ?? catalogProduct.calculatorState?.quantity ?? 1,
+        filamentCostPerKg: matchingAssignment?.filamentCostPerKg ?? catalogProduct.calculatorState?.filaments?.[0]?.costPerKg ?? 1399,
+        profitPercent: matchingAssignment?.profitPercent ?? catalogProduct.calculatorState?.profit?.value ?? 25,
+        profitMode: matchingAssignment?.profitMode ?? catalogProduct.calculatorState?.profit?.mode ?? 'margin',
+        electricityRatePerKwh: matchingAssignment?.electricityRatePerKwh ?? catalogProduct.calculatorState?.electricity?.ratePerKwh ?? 15,
+      },
+    ];
+
+    const qty = assignments[0].quantity ?? catalogProduct.calculatorState?.quantity ?? 1;
+    const profPercent = assignments[0].profitPercent ?? catalogProduct.calculatorState?.profit?.value ?? 25;
+    const profMode = assignments[0].profitMode ?? catalogProduct.calculatorState?.profit?.mode ?? 'margin';
+    const filCost = assignments[0].filamentCostPerKg ?? catalogProduct.calculatorState?.filaments?.[0]?.costPerKg ?? 1399;
+    const elecRate = assignments[0].electricityRatePerKwh ?? catalogProduct.calculatorState?.electricity?.ratePerKwh ?? 15;
 
     setState({
       ...catalogProduct.calculatorState,
       productName: catalogProduct.name,
-      categoryId: catalogProduct.categoryId || assignments[0]?.categoryId,
-      subcategoryId: catalogProduct.subcategoryId || assignments[0]?.subcategoryId,
+      categoryId: effectiveCatId,
+      subcategoryId: effectiveSubId,
       categoryAssignments: assignments,
       productId: catalogProduct.id,
       dimensions: loadedDims,
+      quantity: qty,
+      profit: {
+        mode: profMode,
+        value: profPercent,
+      },
+      filaments: (catalogProduct.calculatorState?.filaments || []).map((f) => ({
+        ...f,
+        costPerKg: filCost,
+      })),
+      electricity: {
+        ...catalogProduct.calculatorState?.electricity,
+        ratePerKwh: elecRate,
+      },
     });
   }, []);
 
