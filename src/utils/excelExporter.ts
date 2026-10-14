@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import type { Category, Subcategory, CatalogProduct, DimensionItem } from '../types/calculator';
+import { isProductInCategory, isProductInSubcategory } from '../types/calculator';
 
 /**
  * Helper to download workbook buffer as file
@@ -63,16 +64,16 @@ function buildGroupedProductsForCategory(
   const subcatSet = new Set(catSubs.map((s) => s.id));
   const subcatMap = new Map(catSubs.map((s) => [s.id, s.name]));
 
-  // All products matching category directly or via subcategoryId
+  // All products matching category directly or via categoryAssignments
   const categoryProducts = products.filter(
-    (p) => p.categoryId === category.id || (p.subcategoryId && subcatSet.has(p.subcategoryId))
+    (p) => isProductInCategory(p, category.id) || (p.subcategoryId && subcatSet.has(p.subcategoryId))
   );
 
   const groups: { subcategoryName: string; subcategoryId: string | null; products: CatalogProduct[] }[] = [];
 
   // 1. Group by known subcategories in exact UI order
   catSubs.forEach((sub) => {
-    const subProds = categoryProducts.filter((p) => p.subcategoryId === sub.id);
+    const subProds = categoryProducts.filter((p) => isProductInSubcategory(p, sub.id));
     if (subProds.length > 0) {
       groups.push({
         subcategoryName: sub.name,

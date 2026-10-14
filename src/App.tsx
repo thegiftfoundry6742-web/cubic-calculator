@@ -44,6 +44,7 @@ export function App() {
     results,
     setProductName,
     setCategoryAssignment,
+    setCategoryAssignments,
     addDimensionItem,
     updateDimensionItem,
     removeDimensionItem,
@@ -76,8 +77,17 @@ export function App() {
 
   // Save product to catalog database
   const handleSaveProductToCatalog = async () => {
+    let assignments = state.categoryAssignments && state.categoryAssignments.length > 0
+      ? state.categoryAssignments.filter((a) => a.categoryId)
+      : [];
+
     let targetCatId = state.categoryId;
     let targetSubId = state.subcategoryId;
+
+    if (!targetCatId && assignments.length > 0) {
+      targetCatId = assignments[0].categoryId;
+      targetSubId = assignments[0].subcategoryId;
+    }
 
     if (!targetCatId) {
       if (categories.length > 0) {
@@ -102,23 +112,36 @@ export function App() {
       }
     }
 
+    if (assignments.length === 0 && targetCatId) {
+      assignments = [{ categoryId: targetCatId, subcategoryId: targetSubId }];
+    } else if (assignments.length > 0 && (!assignments[0].subcategoryId && targetSubId)) {
+      assignments[0].subcategoryId = targetSubId;
+    }
+
     if (!targetCatId || !targetSubId) return;
 
     const savedProduct = await saveCatalogProduct({
       id: state.productId,
       categoryId: targetCatId,
       subcategoryId: targetSubId,
+      categoryAssignments: assignments,
       name: state.productName || 'Custom 3D Printed Product',
       dimensions: state.dimensions,
       calculatorState: {
         ...state,
         categoryId: targetCatId,
         subcategoryId: targetSubId,
+        categoryAssignments: assignments,
       },
       calculationResult: results,
     });
 
-    showToast(`"${savedProduct.name}" saved to Supabase catalog!`);
+    const categoryNames = assignments
+      .map((a) => categories.find((c) => c.id === a.categoryId)?.name)
+      .filter(Boolean)
+      .join(', ');
+
+    showToast(`"${savedProduct.name}" saved${categoryNames ? ` to [${categoryNames}]` : ''}!`);
     setCurrentView('dashboard');
   };
 
@@ -221,7 +244,9 @@ Markup: ${formatPercent(results.actualMarkupAfterDiscount)}`;
               subcategories={subcategories}
               selectedCategoryId={state.categoryId}
               selectedSubcategoryId={state.subcategoryId}
+              categoryAssignments={state.categoryAssignments}
               onCategoryChange={setCategoryAssignment}
+              onCategoryAssignmentsChange={setCategoryAssignments}
               presets={presets}
               onLoadPreset={loadPreset}
               onSavePresetClick={() => setIsPresetModalOpen(true)}

@@ -58,17 +58,21 @@ const server = http.createServer(async (req, res) => {
         updatedAt: r.updated_at,
       }));
 
-      const products = prodRes.rows.map((r) => ({
-        id: r.id,
-        categoryId: r.category_id,
-        subcategoryId: r.subcategory_id,
-        name: r.name,
-        dimensions: r.dimensions,
-        calculatorState: r.calculator_state,
-        calculationResult: r.calculation_result,
-        createdAt: r.created_at,
-        updatedAt: r.updated_at,
-      }));
+      const products = prodRes.rows.map((r) => {
+        const assignments = r.calculator_state?.categoryAssignments || (r.category_id ? [{ categoryId: r.category_id, subcategoryId: r.subcategory_id }] : []);
+        return {
+          id: r.id,
+          categoryId: r.category_id,
+          subcategoryId: r.subcategory_id,
+          categoryAssignments: assignments,
+          name: r.name,
+          dimensions: r.dimensions,
+          calculatorState: r.calculator_state,
+          calculationResult: r.calculation_result,
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+        };
+      });
 
       sendJson(res, 200, { categories, subcategories, products });
       return;

@@ -57,10 +57,16 @@ export interface DimensionItem {
 // Retain legacy type alias for compatibility
 export type ProductDimensions = DimensionItem[];
 
+export interface CategoryAssignment {
+  categoryId: string;
+  subcategoryId?: string;
+}
+
 export interface CalculatorState {
   productName: string;
   categoryId?: string;
   subcategoryId?: string;
+  categoryAssignments?: CategoryAssignment[];
   productId?: string; // set if editing an existing product
   dimensions: DimensionItem[]; // Array supporting multi-part prints (Outer, Inner, Tray, Lid...)
   filaments: FilamentItem[];
@@ -158,12 +164,27 @@ export interface CatalogProduct {
   id: string;
   categoryId: string;
   subcategoryId: string;
+  categoryAssignments?: CategoryAssignment[];
   name: string;
   dimensions: DimensionItem[];
   calculatorState: CalculatorState;
   calculationResult: CalculationResult;
   createdAt: number;
   updatedAt: number;
+}
+
+export function isProductInCategory(product: CatalogProduct, categoryId: string): boolean {
+  if (product.categoryId === categoryId) return true;
+  if (product.categoryAssignments?.some((a) => a.categoryId === categoryId)) return true;
+  if (product.calculatorState?.categoryAssignments?.some((a) => a.categoryId === categoryId)) return true;
+  return false;
+}
+
+export function isProductInSubcategory(product: CatalogProduct, subcategoryId: string): boolean {
+  if (product.subcategoryId === subcategoryId) return true;
+  if (product.categoryAssignments?.some((a) => a.subcategoryId === subcategoryId)) return true;
+  if (product.calculatorState?.categoryAssignments?.some((a) => a.subcategoryId === subcategoryId)) return true;
+  return false;
 }
 
 export interface Preset {

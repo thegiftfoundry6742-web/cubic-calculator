@@ -127,17 +127,21 @@ export function useCatalog() {
           );
 
           setProducts(
-            (prodRes.data || []).map((p) => ({
-              id: p.id,
-              categoryId: p.category_id,
-              subcategoryId: p.subcategory_id,
-              name: p.name,
-              dimensions: p.dimensions,
-              calculatorState: p.calculator_state,
-              calculationResult: p.calculation_result,
-              createdAt: new Date(p.created_at).getTime(),
-              updatedAt: new Date(p.updated_at).getTime(),
-            }))
+            (prodRes.data || []).map((p) => {
+              const assignments = p.calculator_state?.categoryAssignments || (p.category_id ? [{ categoryId: p.category_id, subcategoryId: p.subcategory_id }] : []);
+              return {
+                id: p.id,
+                categoryId: p.category_id,
+                subcategoryId: p.subcategory_id,
+                categoryAssignments: assignments,
+                name: p.name,
+                dimensions: p.dimensions,
+                calculatorState: p.calculator_state,
+                calculationResult: p.calculation_result,
+                createdAt: new Date(p.created_at).getTime(),
+                updatedAt: new Date(p.updated_at).getTime(),
+              };
+            })
           );
 
           setIsSupabaseConnected(true);
@@ -152,7 +156,12 @@ export function useCatalog() {
         const data = await res.json();
         setCategories(data.categories || []);
         setSubcategories(data.subcategories || []);
-        setProducts(data.products || []);
+        setProducts(
+          (data.products || []).map((p: any) => ({
+            ...p,
+            categoryAssignments: p.categoryAssignments || p.calculatorState?.categoryAssignments || (p.categoryId ? [{ categoryId: p.categoryId, subcategoryId: p.subcategoryId }] : []),
+          }))
+        );
         setIsSupabaseConnected(true);
       }
     } catch (err) {
@@ -361,15 +370,29 @@ export function useCatalog() {
       const now = Date.now();
       let savedProd: CatalogProduct;
 
+      const assignments =
+        productData.categoryAssignments ||
+        productData.calculatorState?.categoryAssignments ||
+        (productData.categoryId ? [{ categoryId: productData.categoryId, subcategoryId: productData.subcategoryId }] : []);
+
+      const calculatorStateWithAssignments = {
+        ...productData.calculatorState,
+        categoryAssignments: assignments,
+      };
+
       if (productData.id) {
         savedProd = {
           ...productData,
+          categoryAssignments: assignments,
+          calculatorState: calculatorStateWithAssignments,
           id: productData.id,
           updatedAt: now,
         } as CatalogProduct;
       } else {
         savedProd = {
           ...productData,
+          categoryAssignments: assignments,
+          calculatorState: calculatorStateWithAssignments,
           id: `prod-${now}-${Math.random().toString(36).substring(2, 6)}`,
           createdAt: now,
           updatedAt: now,

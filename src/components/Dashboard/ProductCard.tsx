@@ -83,6 +83,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
         ) : (
           <div className="mt-1 text-[11px] text-slate-400 italic">No dimensions specified</div>
         )}
+
+        {/* Multi-Category Badge if assigned to 2+ categories */}
+        {product.categoryAssignments && product.categoryAssignments.length > 1 && (
+          <div className="mt-2 flex items-center gap-1">
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
+              📁 In {product.categoryAssignments.length} Categories
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Pricing & Filament Summary Stats */}

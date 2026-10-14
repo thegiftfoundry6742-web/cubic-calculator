@@ -1,5 +1,13 @@
 import { useState, useMemo, useCallback } from 'react';
-import type { CalculatorState, FilamentItem, Preset, DimensionItem, CatalogProduct, GlobalSettings } from '../types/calculator';
+import type {
+  CalculatorState,
+  FilamentItem,
+  Preset,
+  DimensionItem,
+  CatalogProduct,
+  GlobalSettings,
+  CategoryAssignment,
+} from '../types/calculator';
 import { calculate3DPrintCost } from '../engine/calculationEngine';
 
 export const DEFAULT_DIMENSIONS: DimensionItem[] = [
@@ -17,6 +25,7 @@ export const DEFAULT_CALCULATOR_STATE: CalculatorState = {
   productName: 'Custom 3D Printed Product',
   categoryId: undefined,
   subcategoryId: undefined,
+  categoryAssignments: [],
   productId: undefined,
   dimensions: DEFAULT_DIMENSIONS,
   filaments: [
@@ -96,7 +105,22 @@ export function useCalculator(globalSettings?: GlobalSettings) {
   }, []);
 
   const setCategoryAssignment = useCallback((categoryId?: string, subcategoryId?: string) => {
-    setState((prev) => ({ ...prev, categoryId, subcategoryId }));
+    setState((prev) => {
+      const assignments = categoryId ? [{ categoryId, subcategoryId }] : [];
+      return { ...prev, categoryId, subcategoryId, categoryAssignments: assignments };
+    });
+  }, []);
+
+  const setCategoryAssignments = useCallback((assignments: CategoryAssignment[]) => {
+    setState((prev) => {
+      const primary = assignments[0];
+      return {
+        ...prev,
+        categoryAssignments: assignments,
+        categoryId: primary?.categoryId,
+        subcategoryId: primary?.subcategoryId,
+      };
+    });
   }, []);
 
   // Multi-Part Dimension Handlers
@@ -242,11 +266,21 @@ export function useCalculator(globalSettings?: GlobalSettings) {
           },
         ];
 
+    const assignments: CategoryAssignment[] =
+      catalogProduct.categoryAssignments && catalogProduct.categoryAssignments.length > 0
+        ? catalogProduct.categoryAssignments
+        : catalogProduct.calculatorState?.categoryAssignments && catalogProduct.calculatorState.categoryAssignments.length > 0
+        ? catalogProduct.calculatorState.categoryAssignments
+        : catalogProduct.categoryId
+        ? [{ categoryId: catalogProduct.categoryId, subcategoryId: catalogProduct.subcategoryId }]
+        : [];
+
     setState({
       ...catalogProduct.calculatorState,
       productName: catalogProduct.name,
-      categoryId: catalogProduct.categoryId,
-      subcategoryId: catalogProduct.subcategoryId,
+      categoryId: catalogProduct.categoryId || assignments[0]?.categoryId,
+      subcategoryId: catalogProduct.subcategoryId || assignments[0]?.subcategoryId,
+      categoryAssignments: assignments,
       productId: catalogProduct.id,
       dimensions: loadedDims,
     });
@@ -265,6 +299,7 @@ export function useCalculator(globalSettings?: GlobalSettings) {
         productName: 'New 3D Print Product',
         categoryId,
         subcategoryId,
+        categoryAssignments: categoryId ? [{ categoryId, subcategoryId }] : [],
         productId: undefined,
         quantity: bulkQty,
         filaments: [
@@ -293,6 +328,7 @@ export function useCalculator(globalSettings?: GlobalSettings) {
     results,
     setProductName,
     setCategoryAssignment,
+    setCategoryAssignments,
     addDimensionItem,
     updateDimensionItem,
     removeDimensionItem,

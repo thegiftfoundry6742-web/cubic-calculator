@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import type { Category, Subcategory, CatalogProduct, GlobalSettings, ProfitMode } from '../../types/calculator';
 import { CategoryCard } from './CategoryCard';
+import { CategoryDetailPage } from './CategoryDetailPage';
 import { CreateCategoryModal, CreateSubcategoryModal } from './ModalForms';
 import { formatINR } from '../../utils/formatters';
-import { FolderPlus, Sparkles, Sliders, Save, FileSpreadsheet } from 'lucide-react';
+import { FolderPlus, Sparkles, Sliders, Save, FileSpreadsheet, Folder } from 'lucide-react';
 import { exportFullCatalogCustomerExcel, exportFullCatalogAdminExcel } from '../../utils/excelExporter';
 
 interface DashboardHomeProps {
@@ -43,6 +44,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   onOpenCalculator,
   showToast,
 }) => {
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
@@ -118,6 +120,73 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   const selectedCategoryObj = categories.find(
     (c) => c.id === (selectedCategoryIdForSub || editingSubcategory?.categoryId)
   );
+
+  const activeCategory = categories.find((c) => c.id === activeCategoryId);
+
+  if (activeCategory) {
+    return (
+      <div className="space-y-6">
+        <CategoryDetailPage
+          category={activeCategory}
+          categories={categories}
+          subcategories={subcategories}
+          products={products}
+          onBack={() => setActiveCategoryId(null)}
+          onSelectCategory={(catId) => setActiveCategoryId(catId)}
+          onAddSubcategoryClick={(catId) => {
+            setEditingSubcategory(null);
+            setSelectedCategoryIdForSub(catId);
+          }}
+          onEditCategoryClick={(catToEdit) => setEditingCategory(catToEdit)}
+          onEditSubcategoryClick={(subToEdit) => setEditingSubcategory(subToEdit)}
+          onAddProductClick={onAddProductForSubcategory}
+          onEditProduct={onEditProduct}
+          onDeleteProduct={onDeleteProduct}
+          onDeleteCategory={(catId) => {
+            onDeleteCategory(catId);
+            setActiveCategoryId(null);
+          }}
+          onDeleteSubcategory={onDeleteSubcategory}
+          showToast={showToast}
+        />
+
+        {/* Category Modal (Create or Edit) */}
+        <CreateCategoryModal
+          isOpen={isCategoryModalOpen || !!editingCategory}
+          initialData={editingCategory}
+          onClose={() => {
+            setIsCategoryModalOpen(false);
+            setEditingCategory(null);
+          }}
+          onSubmit={(name, desc) => {
+            if (editingCategory) {
+              onUpdateCategory(editingCategory.id, name, desc);
+            } else {
+              onAddCategory(name, desc);
+            }
+          }}
+        />
+
+        {/* Subcategory Modal (Create or Edit) */}
+        <CreateSubcategoryModal
+          isOpen={!!selectedCategoryIdForSub || !!editingSubcategory}
+          categoryName={selectedCategoryObj?.name || activeCategory.name}
+          initialData={editingSubcategory}
+          onClose={() => {
+            setSelectedCategoryIdForSub(null);
+            setEditingSubcategory(null);
+          }}
+          onSubmit={(name, desc) => {
+            if (editingSubcategory) {
+              onUpdateSubcategory(editingSubcategory.id, name, desc);
+            } else if (selectedCategoryIdForSub) {
+              onAddSubcategory(selectedCategoryIdForSub, name, desc);
+            }
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -428,48 +497,67 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
       </div>
 
-      {/* List of Category Cards */}
-      {categories.length > 0 ? (
-        <div className="space-y-6">
-          {categories.map((cat) => (
-            <CategoryCard
-              key={cat.id}
-              category={cat}
-              subcategories={subcategories}
-              products={products}
-              onAddSubcategoryClick={(catId) => {
-                setEditingSubcategory(null);
-                setSelectedCategoryIdForSub(catId);
-              }}
-              onEditCategoryClick={(catToEdit) => setEditingCategory(catToEdit)}
-              onEditSubcategoryClick={(subToEdit) => setEditingSubcategory(subToEdit)}
-              onAddProductClick={onAddProductForSubcategory}
-              onEditProduct={onEditProduct}
-              onDeleteProduct={onDeleteProduct}
-              onDeleteCategory={onDeleteCategory}
-              onDeleteSubcategory={onDeleteSubcategory}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-xs max-w-md mx-auto my-8">
-          <FolderPlus className="w-12 h-12 text-[#16a34a] mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-slate-900 font-heading">No Categories Created</h3>
-          <p className="text-xs text-slate-500 mt-1 mb-4">
-            Start by creating product categories (e.g. Desk Accessories, Custom Parts) to structure your 3D printing business catalog.
-          </p>
+      {/* Category Cards Section Header & Grid */}
+      <div className="space-y-4 pt-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-extrabold text-slate-900 font-heading tracking-tight flex items-center gap-2">
+              <Folder className="w-5 h-5 text-emerald-600" />
+              Product Categories ({categories.length})
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Click any category card to open its dedicated page with all subcategories and products.
+            </p>
+          </div>
+
           <button
             onClick={() => {
               setEditingCategory(null);
               setIsCategoryModalOpen(true);
             }}
             type="button"
-            className="px-5 py-2.5 font-bold text-xs bg-[#16a34a] hover:bg-[#15803d] text-white rounded-xl shadow-md cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-900 bg-[#22c55e] hover:bg-[#16a34a] hover:text-white transition-all shadow-md cursor-pointer self-start sm:self-auto"
           >
-            + Create First Category
+            <FolderPlus className="w-4 h-4" />
+            <span>+ Create Category</span>
           </button>
         </div>
-      )}
+
+        {categories.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {categories.map((cat) => (
+              <CategoryCard
+                key={cat.id}
+                category={cat}
+                subcategories={subcategories}
+                products={products}
+                onOpenCategory={(id) => setActiveCategoryId(id)}
+                onEditCategoryClick={(catToEdit) => setEditingCategory(catToEdit)}
+                onDeleteCategory={onDeleteCategory}
+                showToast={showToast}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-xs max-w-md mx-auto my-8">
+            <FolderPlus className="w-12 h-12 text-[#16a34a] mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-slate-900 font-heading">No Categories Created</h3>
+            <p className="text-xs text-slate-500 mt-1 mb-4">
+              Start by creating product categories (e.g. Desk Accessories, Custom Parts) to structure your 3D printing business catalog.
+            </p>
+            <button
+              onClick={() => {
+                setEditingCategory(null);
+                setIsCategoryModalOpen(true);
+              }}
+              type="button"
+              className="px-5 py-2.5 font-bold text-xs bg-[#16a34a] hover:bg-[#15803d] text-white rounded-xl shadow-md cursor-pointer"
+            >
+              + Create First Category
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Category Modal (Create or Edit) */}
       <CreateCategoryModal
