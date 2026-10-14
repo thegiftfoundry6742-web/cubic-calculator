@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import type { Category, Subcategory, CatalogProduct, GlobalSettings, ProfitMode, CategoryRates } from '../../types/calculator';
+import React, { useState } from 'react';
+import type { Category, Subcategory, CatalogProduct, GlobalSettings, CategoryRates } from '../../types/calculator';
 import { CategoryCard } from './CategoryCard';
 import { CategoryDetailPage } from './CategoryDetailPage';
 import { CreateCategoryModal, CreateSubcategoryModal } from './ModalForms';
 import { formatINR } from '../../utils/formatters';
-import { FolderPlus, Sparkles, Sliders, Save, FileSpreadsheet, Folder } from 'lucide-react';
+import { FolderPlus, Sparkles, FileSpreadsheet, Folder } from 'lucide-react';
 import { exportFullCatalogCustomerExcel, exportFullCatalogAdminExcel } from '../../utils/excelExporter';
 
 interface DashboardHomeProps {
   categories: Category[];
   subcategories: Subcategory[];
   products: CatalogProduct[];
-  globalSettings: GlobalSettings;
-  onUpdateGlobalSettings: (settings: GlobalSettings, applyToExisting: boolean) => void;
+  globalSettings?: GlobalSettings;
+  onUpdateGlobalSettings?: (settings: GlobalSettings, applyToExisting: boolean) => void;
   onUpdateCategoryRates?: (categoryId: string, rates: CategoryRates, applyToExisting: boolean) => Promise<void>;
   onAddCategory: (name: string, description: string) => void;
   onUpdateCategory: (id: string, name: string, description: string) => void;
@@ -31,8 +31,8 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   categories,
   subcategories,
   products,
-  globalSettings,
-  onUpdateGlobalSettings,
+  globalSettings: _globalSettings,
+  onUpdateGlobalSettings: _onUpdateGlobalSettings,
   onUpdateCategoryRates,
   onAddCategory,
   onUpdateCategory,
@@ -52,132 +52,6 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
 
   const [selectedCategoryIdForSub, setSelectedCategoryIdForSub] = useState<string | null>(null);
   const [editingSubcategory, setEditingSubcategory] = useState<Subcategory | null>(null);
-
-  const [ratesScope, setRatesScope] = useState<string>('global');
-
-  const [filamentInputStr, setFilamentInputStr] = useState<string>(
-    globalSettings.defaultFilamentCostPerKg ? globalSettings.defaultFilamentCostPerKg.toString() : ''
-  );
-  const [electricityInputStr, setElectricityInputStr] = useState<string>(
-    globalSettings.defaultElectricityRatePerKwh ? globalSettings.defaultElectricityRatePerKwh.toString() : ''
-  );
-  const [profitInputStr, setProfitInputStr] = useState<string>(
-    globalSettings.defaultProfitPercent ? globalSettings.defaultProfitPercent.toString() : '25'
-  );
-  const [profitMode, setProfitMode] = useState<ProfitMode>(
-    globalSettings.defaultProfitMode || 'margin'
-  );
-  const [bulkQtyInputStr, setBulkQtyInputStr] = useState<string>(
-    globalSettings.defaultBulkQuantity ? globalSettings.defaultBulkQuantity.toString() : ''
-  );
-
-  const selectedRatesCategory = categories.find((c) => c.id === ratesScope);
-
-  const handleSwitchRatesScope = (newScope: string) => {
-    setRatesScope(newScope);
-    if (newScope === 'global') {
-      setFilamentInputStr(
-        globalSettings.defaultFilamentCostPerKg ? globalSettings.defaultFilamentCostPerKg.toString() : '1399'
-      );
-      setElectricityInputStr(
-        globalSettings.defaultElectricityRatePerKwh ? globalSettings.defaultElectricityRatePerKwh.toString() : '15'
-      );
-      setProfitInputStr(
-        globalSettings.defaultProfitPercent ? globalSettings.defaultProfitPercent.toString() : '25'
-      );
-      setProfitMode(globalSettings.defaultProfitMode || 'margin');
-      setBulkQtyInputStr(
-        globalSettings.defaultBulkQuantity ? globalSettings.defaultBulkQuantity.toString() : ''
-      );
-    } else {
-      const cat = categories.find((c) => c.id === newScope);
-      const r = cat?.rates;
-      setFilamentInputStr(
-        r?.filamentCostPerKg !== undefined
-          ? r.filamentCostPerKg.toString()
-          : (globalSettings.defaultFilamentCostPerKg ? globalSettings.defaultFilamentCostPerKg.toString() : '1399')
-      );
-      setElectricityInputStr(
-        r?.electricityRatePerKwh !== undefined
-          ? r.electricityRatePerKwh.toString()
-          : (globalSettings.defaultElectricityRatePerKwh ? globalSettings.defaultElectricityRatePerKwh.toString() : '15')
-      );
-      setProfitInputStr(
-        r?.profitPercent !== undefined
-          ? r.profitPercent.toString()
-          : (globalSettings.defaultProfitPercent ? globalSettings.defaultProfitPercent.toString() : '25')
-      );
-      setProfitMode(r?.profitMode || globalSettings.defaultProfitMode || 'margin');
-      setBulkQtyInputStr(
-        r?.bulkQuantity !== undefined && r.bulkQuantity > 0
-          ? r.bulkQuantity.toString()
-          : (globalSettings.defaultBulkQuantity ? globalSettings.defaultBulkQuantity.toString() : '')
-      );
-    }
-  };
-
-  const handleSaveRates = async () => {
-    const filVal = parseFloat(filamentInputStr) || 1399;
-    const elecVal = parseFloat(electricityInputStr) || 15;
-    const profitVal = parseFloat(profitInputStr) || 25;
-    const bulkQtyVal = bulkQtyInputStr.trim() !== '' ? parseFloat(bulkQtyInputStr) || undefined : undefined;
-
-    if (ratesScope === 'global') {
-      onUpdateGlobalSettings(
-        {
-          defaultFilamentCostPerKg: filVal,
-          defaultElectricityRatePerKwh: elecVal,
-          defaultProfitPercent: profitVal,
-          defaultProfitMode: profitMode,
-          defaultBulkQuantity: bulkQtyVal,
-        },
-        true
-      );
-      if (showToast) {
-        showToast(
-          `Applied Global Base Rates${bulkQtyVal ? ` & Bulk MOQ (${bulkQtyVal} units)` : ''} to all products!`
-        );
-      }
-    } else if (onUpdateCategoryRates) {
-      const cat = categories.find((c) => c.id === ratesScope);
-      const newRates: CategoryRates = {
-        filamentCostPerKg: filVal,
-        electricityRatePerKwh: elecVal,
-        profitPercent: profitVal,
-        profitMode: profitMode,
-        bulkQuantity: bulkQtyVal,
-      };
-      await onUpdateCategoryRates(ratesScope, newRates, true);
-      if (showToast) {
-        showToast(`Saved rates for "${cat?.name || 'Category'}" and updated its products!`);
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (ratesScope === 'global') {
-      setFilamentInputStr(
-        globalSettings.defaultFilamentCostPerKg ? globalSettings.defaultFilamentCostPerKg.toString() : ''
-      );
-      setElectricityInputStr(
-        globalSettings.defaultElectricityRatePerKwh ? globalSettings.defaultElectricityRatePerKwh.toString() : ''
-      );
-      setProfitInputStr(
-        globalSettings.defaultProfitPercent ? globalSettings.defaultProfitPercent.toString() : '25'
-      );
-      setProfitMode(globalSettings.defaultProfitMode || 'margin');
-      setBulkQtyInputStr(
-        globalSettings.defaultBulkQuantity ? globalSettings.defaultBulkQuantity.toString() : ''
-      );
-    }
-  }, [
-    ratesScope,
-    globalSettings.defaultFilamentCostPerKg,
-    globalSettings.defaultElectricityRatePerKwh,
-    globalSettings.defaultProfitPercent,
-    globalSettings.defaultProfitMode,
-    globalSettings.defaultBulkQuantity,
-  ]);
 
   // Compute stats
   const totalBatchQuantity = products.reduce((sum, p) => {
@@ -447,148 +321,6 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
       </div>
 
-      {/* Base Rates & Pricing Defaults Panel with Category Scope Switcher */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
-          <div>
-            <div className="flex items-center gap-2">
-              <Sliders className="w-5 h-5 text-[#22c55e]" />
-              <h3 className="text-base font-bold text-slate-900 font-heading">
-                {ratesScope === 'global' ? 'Global Pricing Base Rates' : `Pricing Base Rates for "${selectedRatesCategory?.name}"`}
-              </h3>
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                {ratesScope === 'global' ? 'Catalog Defaults' : 'Category-Specific'}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {ratesScope === 'global'
-                ? 'Set default filament price and electricity rate applied to new products. Switch to a specific category below to customize rates separately.'
-                : `Rates configured here are separate for "${selectedRatesCategory?.name}" and will not affect other categories.`}
-            </p>
-          </div>
-
-          {/* Category Scope Selector */}
-          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-            <span className="text-xs font-semibold text-slate-500">Configure Rates For:</span>
-            <select
-              value={ratesScope}
-              onChange={(e) => handleSwitchRatesScope(e.target.value)}
-              className="text-xs font-bold text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer shadow-2xs"
-            >
-              <option value="global">🌐 Global Defaults (All Categories)</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  📁 {c.name} {c.rates ? '✓ (Separate Rates)' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-4 items-end">
-          {/* Filament Default Price (Free text) */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              {ratesScope === 'global' ? 'Default Filament Price' : `${selectedRatesCategory?.name} Filament`} (₹/kg)
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                ₹
-              </span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={filamentInputStr}
-                onChange={(e) => setFilamentInputStr(e.target.value)}
-                placeholder="e.g. 1399"
-                className="w-full pl-7 pr-3 py-2 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
-              />
-            </div>
-          </div>
-
-          {/* Electricity Default Rate (Free text) */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Electricity Rate (₹/kWh)
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                ₹
-              </span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={electricityInputStr}
-                onChange={(e) => setElectricityInputStr(e.target.value)}
-                placeholder="e.g. 15"
-                className="w-full pl-7 pr-3 py-2 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
-              />
-            </div>
-          </div>
-
-          {/* Profit Target % (Free text) */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-semibold text-slate-700">
-                Profit Target (%)
-              </label>
-              <button
-                type="button"
-                onClick={() => setProfitMode((prev: ProfitMode) => (prev === 'margin' ? 'markup' : 'margin'))}
-                className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
-                title="Toggle Profit Margin % vs Markup %"
-              >
-                {profitMode === 'margin' ? 'Margin %' : 'Markup %'}
-              </button>
-            </div>
-            <div className="relative">
-              <input
-                type="text"
-                inputMode="decimal"
-                value={profitInputStr}
-                onChange={(e) => setProfitInputStr(e.target.value)}
-                placeholder="e.g. 25"
-                className="w-full pl-3 pr-8 py-2 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                %
-              </span>
-            </div>
-          </div>
-
-          {/* Bulk Quantity MOQ (Free text) */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Bulk Quantity (MOQ)
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={bulkQtyInputStr}
-                onChange={(e) => setBulkQtyInputStr(e.target.value)}
-                placeholder="e.g. 50 (optional)"
-                className="w-full pl-3 pr-11 py-2 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
-                Units
-              </span>
-            </div>
-          </div>
-
-          {/* Save & Apply Button */}
-          <button
-            onClick={handleSaveRates}
-            type="button"
-            className="w-full py-2.5 px-4 font-bold text-xs text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-md shadow-slate-900/20 transition-all cursor-pointer flex items-center justify-center gap-2"
-          >
-            <Save className="w-4 h-4 text-[#22c55e]" />
-            <span>
-              {ratesScope === 'global' ? 'Save & Apply to All Products' : `Save & Apply to ${selectedRatesCategory?.name}`}
-            </span>
-          </button>
-        </div>
-      </div>
 
       {/* Category Cards Section Header & Grid */}
       <div className="space-y-4 pt-2">
